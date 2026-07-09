@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Talia VS Hamoude - 3D Stitch & Angel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@800&family=Poppins:wght@600&display=swap" rel="stylesheet">
+  
+  <!-- Synchronous Three.js Load -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      background-color: #030206;
+      color: #ffffff;
+      font-family: 'Poppins', sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #three-canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 1;
+    }
+
+    /* Minimal UI Overlay */
+    #ui-layer {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2rem;
+    }
+
+    .header {
+      text-align: center;
+      background: rgba(14, 11, 28, 0.75);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: 1.5rem 3rem;
+      border-radius: 20px;
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+      position: relative;
+    }
+
+    /* Tropical Border Decorations */
+    .border-flower {
+      position: absolute;
+      width: 70px; height: 70px;
+      pointer-events: none;
+      filter: drop-shadow(0 0 8px rgba(57, 255, 20, 0.5));
+    }
+    .flower-tl { top: -20px; left: -20px; }
+    .flower-tr { top: -20px; right: -20px; transform: scaleX(-1); }
+    .flower-bl { bottom: -20px; left: -20px; transform: scaleY(-1); }
+    .flower-br { bottom: -20px; right: -20px; transform: scale(-1); }
+
+    h1 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.8rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(45deg, #ff007b, #00f6ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.2));
+    }
+
+    .rules {
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 0.8rem;
+    }
+    .rules strong { color: #39ff14; }
+
+    .status {
+      font-size: 1.1rem;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 0.5rem 1rem;
+      border-radius: 10px;
+      border: 1px dashed rgba(255,255,255,0.2);
+    }
+    .status span { font-weight: 800; font-size: 1.2rem; }
+    .status .talia { color: #ff007b; text-shadow: 0 0 10px #ff007b; }
+    .status .hamoude { color: #00f6ff; text-shadow: 0 0 10px #00f6ff; }
+
+    .bottom-controls { pointer-events: auto; margin-bottom: 2rem; }
+
+    button {
+      font-family: 'Orbitron', sans-serif;
+      background: rgba(10, 8, 20, 0.9);
+      border: 2px solid #39ff14;
+      color: #39ff14;
+      padding: 1rem 3rem;
+      font-size: 1.1rem;
+      font-weight: 800;
+      border-radius: 12px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 15px rgba(57, 255, 20, 0.3);
+    }
+    button:hover {
+      background: #39ff14;
+      color: #000;
+      box-shadow: 0 0 30px rgba(57, 255, 20, 0.6);
+      transform: scale(1.05);
+    }
+
+    /* Glitch UI Element */
+    #glitch-banner {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      background: rgba(14, 11, 28, 0.95);
+      border: 3px solid #ffb700;
+      color: #fff;
+      padding: 2rem 4rem;
+      font-family: 'Orbitron', sans-serif;
+      text-align: center;
+      border-radius: 16px;
+      box-shadow: 0 0 40px #ffb700;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    #glitch-banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    #glitch-banner h2 { font-size: 2rem; margin-bottom: 0.5rem; }
+    #glitch-banner p { font-size: 1.2rem; color: #39ff14; }
+
+    /* Modal */
+    #modal {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      background: rgba(14, 11, 26, 0.98);
+      border: 2px solid #39ff14;
+      padding: 3rem;
+      border-radius: 20px;
+      text-align: center;
+      box-shadow: 0 0 50px rgba(57, 255, 20, 0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    #modal.show { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+    #modal h2 { font-family: 'Orbitron', sans-serif; font-size: 2.5rem; margin-bottom: 1.5rem; color: #fff; }
+  </style>
+</head>
+<body>
+
+  <div id="three-canvas"></div>
+
+  <div id="ui-layer">
+    <div class="header">
+      <!-- Tropical SVG Frames -->
+      <div class="border-flower flower-tl">
+        <svg viewBox="0 0 100 100">
+          <path d="M 10,10 Q 55,25 45,55 Q 20,45 10,10" fill="none" stroke="#39ff14" stroke-width="4.5" />
+          <circle cx="45" cy="45" r="9" fill="#ff007b" />
+          <circle cx="28" cy="18" r="5" fill="#ffb700" />
+        </svg>
+      </div>
+      <div class="border-flower flower-tr">
+        <svg viewBox="0 0 100 100">
+          <path d="M 10,10 Q 55,25 45,55 Q 20,45 10,10" fill="none" stroke="#39ff14" stroke-width="4.5" />
+          <circle cx="45" cy="45" r="9" fill="#ff007b" />
+          <circle cx="28" cy="18" r="5" fill="#ffb700" />
+        </svg>
+      </div>
+      <div class="border-flower flower-bl">
+        <svg viewBox="0 0 100 100">
+          <path d="M 10,10 Q 55,25 45,55 Q 20,45 10,10" fill="none" stroke="#39ff14" stroke-width="4.5" />
+          <circle cx="45" cy="45" r="9" fill="#ff007b" />
+          <circle cx="28" cy="18" r="5" fill="#ffb700" />
+        </svg>
+      </div>
+      <div class="border-flower flower-br">
+        <svg viewBox="0 0 100 100">
+          <path d="M 10,10 Q 55,25 45,55 Q 20,45 10,10" fill="none" stroke="#39ff14" stroke-width="4.5" />
+          <circle cx="45" cy="45" r="9" fill="#ff007b" />
+          <circle cx="28" cy="18" r="5" fill="#ffb700" />
+        </svg>
+      </div>
+
+      <h1>Talia vs Hamoude</h1>
+      <div class="rules">
+        <strong>Decay:</strong> 3 Moves Max. <strong>Anomalies:</strong> 20% Chance Shift.
+      </div>
+      <div class="status" id="status-text">
+        Turn: <span class="talia">TALIA (ANGEL)</span>
+      </div>
+    </div>
+
+    <div class="bottom-controls">
+      <button id="reset-btn">Restart Game</button>
+    </div>
+  </div>
+
+  <div id="glitch-banner">
+    <h2 style="color:#ffb700;">ANOMALY</h2>
+    <p id="glitch-text">GRAVITY COLLAPSE</p>
+  </div>
+
+  <div id="modal">
+    <h2 id="modal-text">Talia Wins!</h2>
+    <button id="modal-btn">Play Again</button>
+  </div>
+
+  <script>
+    // ==========================================
+    // GLOBAL STATE & VARIABLES
+    // ==========================================
+    let scene, camera, renderer, boardGroup, starsGroup;
+    let cellMeshes = [];
+    let particles = [];
+    let activeMoves = []; 
+    let ambientPetals = [];
+    
+    let moveIdCounter = 0;
+    let currentPlayer = 'X'; // X = Talia (Angel), O = Hamoude (Stitch)
+    let gameState = ['', '', '', '', '', '', '', '', ''];
+    let gameActive = true;
+    let pulseTime = 0;
+
+    let texAngel, texStitch; // Cached 3D Textures
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    const winningConditions = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8],
+      [0, 3, 6], [1, 4, 7], [2, 5, 8],
+      [0, 4, 8], [2, 4, 6]
+    ];
+
+    // DOM Links
+    const statusText = document.getElementById('status-text');
+    const modal = document.getElementById('modal');
+    const modalText = document.getElementById('modal-text');
+    const glitchBanner = document.getElementById('glitch-banner');
+    const glitchText = document.getElementById('glitch-text');
+
+    // ==========================================
+    // INITIALIZATION
+    // ==========================================
+    function init() {
+      // 1. Cache Textures procedurally
+      texAngel = createAvatarTexture('ANGEL');
+      texStitch = createAvatarTexture('STITCH');
+
+      // 2. Setup Engine
+      const container = document.getElementById('three-canvas');
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x020108);
+      scene.fog = new THREE.FogExp2(0x020108, 0.02);
+
+      camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(0, -5, 10.5);
+      camera.lookAt(0, -0.5, 0);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      container.appendChild(renderer.domElement);
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      dirLight.position.set(0, 5, 10);
+      scene.add(dirLight);
+
+      boardGroup = new THREE.Group();
+      boardGroup.rotation.x = 0.2; 
+      scene.add(boardGroup);
+
+      buildDeepSpace();
+      buildBoard();
+
+      window.addEventListener('resize', onWindowResize);
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('click', onMouseClick);
+      document.getElementById('reset-btn').addEventListener('click', resetGame);
+      document.getElementById('modal-btn').addEventListener('click', resetGame);
+
+      animate();
+    }
+
+    // ==========================================
+    // PROCEDURAL TEXTURE GENERATOR (CORS Safe)
+    // ==========================================
+    function createAvatarTexture(type) {
+      const canv = document.createElement('canvas');
+      canv.width = 512; canv.height = 512;
+      const c = canv.getContext('2d');
+      c.clearRect(0,0,512,512);
+
+      if (type === 'ANGEL') {
+        // Angel (Pink)
+        c.fillStyle = "#f28bb3";
+        c.beginPath(); c.ellipse(150, 240, 40, 110, -Math.PI / 6, 0, Math.PI * 2); c.fill();
+        c.fillStyle = "#b82a6f";
+        c.beginPath(); c.ellipse(155, 240, 25, 80, -Math.PI / 6, 0, Math.PI * 2); c.fill();
+        c.fillStyle = "#f28bb3";
+        c.beginPath(); c.ellipse(362, 240, 40, 110, Math.PI / 6, 0, Math.PI * 2); c.fill();
+        c.fillStyle = "#b82a6f";
+        c.beginPath(); c.ellipse(357, 240, 25, 80, Math.PI / 6, 0, Math.PI * 2); c.fill();
+
+        c.strokeStyle = "#f28bb3"; c.lineWidth = 14; c.lineCap = "round";
+        c.beginPath(); c.bezierCurveTo(210, 160, 140, 60, 180, 80); c.stroke();
+        c.beginPath(); c.bezierCurveTo(302, 160, 372, 60, 332, 80); c.stroke();
+
+        c.fillStyle = "#f5a4c9";
+        c.beginPath(); c.ellipse(256, 270, 115, 95, 0, 0, Math.PI * 2); c.fill();
+
+        c.fillStyle = "#ffffff";
+        c.beginPath(); c.ellipse(195, 260, 26, 32, -Math.PI / 12, 0, Math.PI * 2);
+        c.ellipse(317, 260, 26, 32, Math.PI / 12, 0, Math.PI * 2); c.fill();
+        c.fillStyle = "#111111";
+        c.beginPath(); c.ellipse(198, 263, 16, 22, -Math.PI / 12, 0, Math.PI * 2);
+        c.ellipse(314, 263, 16, 22, Math.PI / 12, 0, Math.PI * 2); c.fill();
+        c.fillStyle = "#ffffff";
+        c.beginPath(); c.arc(192, 250, 6, 0, Math.PI*2); c.arc(310, 250, 6, 0, Math.PI*2); c.fill();
+
+        c.fillStyle = "#8d1355";
+        c.beginPath(); c.moveTo(235, 280); c.quadraticCurveTo(256, 260, 277, 280); c.quadraticCurveTo(256, 305, 235, 280); c.fill();
+
+        c.strokeStyle = "#111111"; c.lineWidth = 8;
+        c.beginPath(); c.arc(256, 312, 25, 0, Math.PI); c.stroke();
+
+        const f = [[200, 175], [256, 165], [312, 175]];
+        f.forEach(pos => {
+          c.fillStyle = "#ff007b"; c.beginPath(); c.arc(pos[0], pos[1], 15, 0, Math.PI * 2); c.fill();
+          c.fillStyle = "#ffb700"; c.beginPath(); c.arc(pos[0], pos[1], 6, 0, Math.PI * 2); c.fill();
+        });
+
+      } else {
+        // Stitch (Blue)
+        c.fillStyle = "#007cb0";
+        c.beginPath(); c.ellipse(140, 240, 38, 115, -Math.PI / 5, 0, Math.PI * 2); c.fill();
+        c.fillStyle = "#f49cb1";
+        c.beginPath(); c.ellipse(146, 240, 24, 85, -Math.PI / 5, 0, Math.PI * 2); c.fill();
+        c.fillStyle = "#007cb0";
+        c.beginPath(); c.ellipse(372, 240, 38, 115, Math.PI / 5, 0, Math.PI * 2); c.fill();
+        c.fillStyle = "#f49cb1";
+        c.beginPath(); c.ellipse(366, 240, 24, 85, Math.PI / 5, 0, Math.PI * 2); c.fill();
+
+        c.fillStyle = "#008ecc";
+        c.beginPath(); c.ellipse(256, 270, 115, 95, 0, 0, Math.PI * 2); c.fill();
+
+        c.fillStyle = "#aee2f9";
+        c.beginPath(); c.ellipse(195, 260, 32, 22, -Math.PI / 10, 0, Math.PI * 2);
+        c.ellipse(317, 260, 32, 22, Math.PI / 10, 0, Math.PI * 2); c.fill();
+        c.fillStyle = "#111111";
+        c.beginPath(); c.ellipse(198, 262, 16, 20, -Math.PI / 10, 0, Math.PI * 2);
+        c.ellipse(314, 262, 16, 20, Math.PI / 10, 0, Math.PI * 2); c.fill();
+        c.fillStyle = "#ffffff";
+        c.beginPath(); c.arc(192, 252, 6, 0, Math.PI*2); c.arc(310, 252, 6, 0, Math.PI*2); c.fill();
+
+        c.fillStyle = "#003e75";
+        c.beginPath(); c.moveTo(230, 280); c.quadraticCurveTo(256, 255, 282, 280); c.quadraticCurveTo(256, 310, 230, 280); c.fill();
+
+        c.strokeStyle = "#111111"; c.lineWidth = 10;
+        c.beginPath(); c.arc(256, 310, 32, 0, Math.PI); c.stroke();
+
+        const f = [[200, 175], [256, 165], [312, 175]];
+        f.forEach(pos => {
+          c.fillStyle = "#00f6ff"; c.beginPath(); c.arc(pos[0], pos[1], 15, 0, Math.PI * 2); c.fill();
+          c.fillStyle = "#ffb700"; c.beginPath(); c.arc(pos[0], pos[1], 6, 0, Math.PI * 2); c.fill();
+        });
+      }
+
+      const tex = new THREE.CanvasTexture(canv);
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    // ==========================================
+    // 3D ENVIRONMENT BUILDERS
+    // ==========================================
+    function buildDeepSpace() {
+      const starGeo = new THREE.BufferGeometry();
+      const starPos = new Float32Array(800 * 3);
+      for(let i=0; i<800*3; i++) starPos[i] = (Math.random() - 0.5) * 60;
+      starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+      starsGroup = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.08 }));
+      starsGroup.position.z = -10;
+      scene.add(starsGroup);
+
+      // Add falling 3D geometric petals
+      const pGeo = new THREE.ConeGeometry(0.12, 0.3, 3);
+      const cols = [0xff007b, 0x00f6ff, 0xffe600];
+      for(let i=0; i<20; i++) {
+        const mat = new THREE.MeshStandardMaterial({ color: cols[i%3], transparent: true, opacity: 0.8 });
+        const mesh = new THREE.Mesh(pGeo, mat);
+        mesh.userData = {
+          ySpd: Math.random()*0.02 + 0.01,
+          xSpd: Math.random()*0.01 - 0.005,
+          rot: Math.random()*0.05
+        };
+        mesh.position.set((Math.random()-0.5)*12, (Math.random()-0.5)*10, Math.random()*4 - 2);
+        scene.add(mesh);
+        ambientPetals.push(mesh);
+      }
+    }
+
+    function buildBoard() {
+      // Physical Grid lines
+      const lineMat = new THREE.MeshStandardMaterial({ color: 0x39ff14, emissive: 0x114400, roughness: 0.2 });
+      const tGeo = new THREE.CylinderGeometry(0.08, 0.08, 7.5, 16);
+
+      const v1 = new THREE.Mesh(tGeo, lineMat); v1.position.set(-1.25, 0, 0);
+      const v2 = new THREE.Mesh(tGeo, lineMat); v2.position.set(1.25, 0, 0);
+      const h1 = new THREE.Mesh(tGeo, lineMat); h1.position.set(0, -1.25, 0); h1.rotation.z = Math.PI / 2;
+      const h2 = new THREE.Mesh(tGeo, lineMat); h2.position.set(0, 1.25, 0); h2.rotation.z = Math.PI / 2;
+      
+      boardGroup.add(v1, v2, h1, h2);
+
+      // Base invisible hitboxes
+      for (let i = 0; i < 9; i++) {
+        const col = i % 3;
+        const row = Math.floor(i / 3);
+        const posX = (col - 1) * 2.5;
+        const posY = (1 - row) * 2.5;
+
+        const cell = new THREE.Mesh(
+          new THREE.BoxGeometry(2.3, 2.3, 0.2),
+          new THREE.MeshStandardMaterial({ color: 0x000000, transparent: true, opacity: 0.25 })
+        );
+        cell.position.set(posX, posY, 0);
+        
+        cell.userData = { 
+          index: i, 
+          initialPos: cell.position.clone(),
+          avatarGroup: null,
+          isExploding: false,
+          velocity: null
+        };
+        boardGroup.add(cell);
+        cellMeshes.push(cell);
+      }
+    }
+
+    // ==========================================
+    // INTERACTION & GAME LOOP
+    // ==========================================
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function onMouseMove(event) {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      if (gameActive) {
+        boardGroup.rotation.x += (0.2 + mouse.y * -0.1 - boardGroup.rotation.x) * 0.1;
+        boardGroup.rotation.y += (mouse.x * 0.1 - boardGroup.rotation.y) * 0.1;
+      }
+    }
+
+    function onMouseClick() {
+      if (!gameActive) return;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(cellMeshes);
+
+      if (intersects.length > 0) {
+        const cell = intersects[0].object;
+        if (gameState[cell.userData.index] === '') {
+          playTurn(cell, cell.userData.index);
+        }
+      }
+    }
+
+    function playTurn(cellMesh, index) {
+      gameActive = false; // block inputs
+
+      // Spawn Particle Burst
+      const color = currentPlayer === 'X' ? 0xff007b : 0x00f6ff;
+      spawnParticles(cellMesh, color);
+
+      // Spawn Avatar
+      const avatarMat = new THREE.MeshStandardMaterial({
+        map: currentPlayer === 'X' ? texAngel : texStitch,
+        transparent: true, side: THREE.DoubleSide, emissive: 0x000000
+      });
+      const avatar = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), avatarMat);
+      avatar.position.set(0, 0, 0.3);
+      avatar.scale.set(0, 0, 0);
+      
+      cellMesh.add(avatar);
+      cellMesh.userData.avatarGroup = avatar;
+
+      const move = { index: index, player: currentPlayer, id: moveIdCounter++, avatar: avatar };
+      activeMoves.push(move);
+
+      // Pop in animation
+      let t = 0;
+      function popIn() {
+        t += 0.1;
+        if (t > 1) t = 1;
+        const s = Math.sin(t * Math.PI * 0.5) * 0.9;
+        avatar.scale.set(s, s, s);
+        
+        if (t === 1) {
+          processDecay();
+        } else {
+          requestAnimationFrame(popIn);
+        }
+      }
+      popIn();
+    }
+
+    function processDecay() {
+      const pMoves = activeMoves.filter(m => m.player === currentPlayer);
+      if (pMoves.length > 3) {
+        const oldest = pMoves[0];
+        const cell = cellMeshes[oldest.index];
+        spawnParticles(cell, 0xffb700);
+
+        if (cell.userData.avatarGroup) {
+          cell.remove(cell.userData.avatarGroup);
+          cell.userData.avatarGroup = null;
+        }
+        activeMoves = activeMoves.filter(m => m.id !== oldest.id);
+      }
+
+      rebuildGameState();
+
+      if (checkWin()) return;
+
+      // Anomalies
+      if (Math.random() < 0.20) {
+        const type = Math.random() < 0.5 ? 'ROTATION' : 'GRAVITY';
+        triggerAnomaly(type);
+      } else {
+        finishTurn();
+      }
+    }
+
+    function rebuildGameState() {
+      gameState = ['', '', '', '', '', '', '', '', ''];
+      activeMoves.forEach(m => { gameState[m.index] = m.player; });
+    }
+
+    // ==========================================
+    // DETACH, ANIMATE & REATTACH ANOMALY SYSTEM
+    // ==========================================
+    function detachAvatars() {
+      activeMoves.forEach(m => {
+        const cell = cellMeshes[m.index];
+        boardGroup.add(m.avatar);
+        m.avatar.position.copy(cell.position);
+        m.avatar.position.z += 0.3; // keep visual depth
+        cell.userData.avatarGroup = null;
+      });
+    }
+
+    function reattachAvatars() {
+      activeMoves.forEach(m => {
+        const cell = cellMeshes[m.index];
+        cell.add(m.avatar);
+        m.avatar.position.set(0, 0, 0.3); // Reset local depth
+        cell.userData.avatarGroup = m.avatar;
+      });
+    }
+
+    function triggerAnomaly(type) {
+      glitchText.textContent = type === 'ROTATION' ? 'SECTOR ROTATION' : 'GRAVITY COLLAPSE';
+      glitchBanner.classList.add('show');
+
+      setTimeout(() => {
+        glitchBanner.classList.remove('show');
+        detachAvatars();
+
+        if (type === 'ROTATION') {
+          // Calculate new indices
+          const rotMap = { 0:2, 1:5, 2:8, 3:1, 4:4, 5:7, 6:0, 7:3, 8:6 };
+          activeMoves.forEach(m => m.newIndex = rotMap[m.index]);
+
+          // Animate Group rotation
+          let t = 0;
+          const initialZ = boardGroup.rotation.z;
+          const targetZ = initialZ - Math.PI / 2;
+          function rotateStep() {
+            t += 0.05; if (t > 1) t = 1;
+            const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+            boardGroup.rotation.z = initialZ + (targetZ - initialZ) * ease;
+            if (t === 1) {
+              boardGroup.rotation.z = 0; // reset
+              activeMoves.forEach(m => m.index = m.newIndex);
+              completeAnomaly();
+            } else requestAnimationFrame(rotateStep);
+          }
+          rotateStep();
+        } 
+        else {
+          // Gravity
+          const targets = {};
+          for (let col = 0; col < 3; col++) {
+            const cM = activeMoves.filter(m => m.index % 3 === col).sort((a,b) => b.index - a.index);
+            let row = 2;
+            cM.forEach(m => { targets[m.id] = row * 3 + col; row--; });
+          }
+          
+          activeMoves.forEach(m => {
+            m.newIndex = targets[m.id];
+            m.startPos = m.avatar.position.clone();
+            m.targetPos = cellMeshes[m.newIndex].position.clone();
+            m.targetPos.z = 0.3;
+          });
+
+          let t = 0;
+          function fallStep() {
+            t += 0.05; if (t > 1) t = 1;
+            const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; // Smooth drop
+            activeMoves.forEach(m => { m.avatar.position.lerpVectors(m.startPos, m.targetPos, ease); });
+            if (t === 1) {
+              activeMoves.forEach(m => m.index = m.newIndex);
+              completeAnomaly();
+            } else requestAnimationFrame(fallStep);
+          }
+          fallStep();
+        }
+      }, 1200);
+    }
+
+    function completeAnomaly() {
+      reattachAvatars();
+      rebuildGameState();
+      if (!checkWin()) finishTurn();
+    }
+
+    function finishTurn() {
+      currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+      gameActive = true;
+      if (currentPlayer === 'X') statusText.innerHTML = `Turn: <span class="talia">TALIA (ANGEL)</span>`;
+      else statusText.innerHTML = `Turn: <span class="hamoude">HAMOUDE (STITCH)</span>`;
+    }
+
+    function checkWin() {
+      for (let i = 0; i < winningConditions.length; i++) {
+        const [a, b, c] = winningConditions[i];
+        if (gameState[a] && gameState[a] === gameState[b] && gameState[a] === gameState[c]) {
+          gameActive = false;
+          
+          // Explode losing pieces
+          cellMeshes.forEach(cell => {
+            if (gameState[cell.userData.index] !== gameState[a]) {
+              cell.userData.isExploding = true;
+              cell.userData.velocity = new THREE.Vector3((Math.random()-0.5)*0.2, (Math.random()-0.5)*0.2, Math.random()*0.3);
+            }
+          });
+
+          setTimeout(() => {
+            const winner = gameState[a] === 'X' ? 'Talia' : 'Hamoude';
+            modalText.textContent = `${winner} Wins!`;
+            modal.classList.add('show');
+          }, 1500);
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function resetGame() {
+      activeMoves.forEach(m => {
+        if (m.avatar && m.avatar.parent) m.avatar.parent.remove(m.avatar);
+      });
+      activeMoves = [];
+      moveIdCounter = 0;
+      currentPlayer = 'X';
+      rebuildGameState();
+
+      cellMeshes.forEach(cell => {
+        cell.position.copy(cell.userData.initialPos);
+        cell.rotation.set(0,0,0);
+        cell.scale.set(1,1,1);
+        cell.userData.isExploding = false;
+        cell.userData.avatarGroup = null;
+      });
+
+      boardGroup.rotation.set(0.2, 0, 0);
+      modal.classList.remove('show');
+      statusText.innerHTML = `Turn: <span class="talia">TALIA (ANGEL)</span>`;
+      gameActive = true;
+    }
+
+    function spawnParticles(cell, hexColor) {
+      const pGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
+      const pMat = new THREE.MeshBasicMaterial({ color: hexColor });
+      for(let i=0; i<15; i++) {
+        const p = new THREE.Mesh(pGeo, pMat);
+        p.position.copy(cell.position).applyMatrix4(boardGroup.matrixWorld);
+        p.userData = {
+          vel: new THREE.Vector3((Math.random()-0.5)*0.3, (Math.random()-0.5)*0.3, Math.random()*0.3),
+          life: 1.0
+        };
+        scene.add(p);
+        particles.push(p);
+      }
+    }
+
+    // ==========================================
+    // MAIN RENDER LOOP
+    // ==========================================
+    function animate() {
+      requestAnimationFrame(animate);
+      pulseTime += 0.08;
+
+      if (starsGroup) starsGroup.rotation.z -= 0.0005;
+
+      ambientPetals.forEach(p => {
+        p.position.y -= p.userData.ySpd;
+        p.position.x += p.userData.xSpd;
+        p.rotation.x += p.userData.rot;
+        p.rotation.y += p.userData.rot;
+        if(p.position.y < -6) {
+          p.position.set((Math.random()-0.5)*12, 6, Math.random()*4 - 2);
+        }
+      });
+
+      // Reset Emissive Glows
+      activeMoves.forEach(m => m.avatar.material.emissive.setHex(0x000000));
+
+      if (gameActive) {
+        const oldestX = activeMoves.filter(m => m.player === 'X')[0];
+        const oldestO = activeMoves.filter(m => m.player === 'O')[0];
+        const intensity = Math.abs(Math.sin(pulseTime)) * 0.6;
+        const warnColor = new THREE.Color(0xffaa00).multiplyScalar(intensity);
+
+        if (currentPlayer === 'X' && oldestX && activeMoves.filter(m => m.player === 'X').length === 3) {
+          oldestX.avatar.material.emissive = warnColor;
+        }
+        if (currentPlayer === 'O' && oldestO && activeMoves.filter(m => m.player === 'O').length === 3) {
+          oldestO.avatar.material.emissive = warnColor;
+        }
+      }
+
+      cellMeshes.forEach(cell => {
+        if (cell.userData.isExploding) {
+          cell.position.add(cell.userData.velocity);
+          cell.rotation.x += 0.1; cell.rotation.y += 0.1;
+          cell.scale.multiplyScalar(0.95);
+        }
+      });
+
+      for(let i=particles.length-1; i>=0; i--) {
+        const p = particles[i];
+        p.position.add(p.userData.vel);
+        p.rotation.x += 0.2;
+        p.userData.life -= 0.02;
+        p.scale.multiplyScalar(0.9);
+        if(p.userData.life <= 0) { scene.remove(p); particles.splice(i,1); }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // Launch
+    window.onload = init;
+  </script>
+</body>
+</html>

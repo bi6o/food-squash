@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LEGO Jumper - DELUXE EDITION</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #1a1a2e; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Comic Sans MS', 'Arial', sans-serif; overflow: hidden; color: white; }
+        canvas { background-color: #4A90E2; box-shadow: 0 0 30px rgba(0,0,0,0.9); border: 6px solid #FFD700; border-radius: 15px; }
+        
+        #ui { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); width: 760px; display: flex; justify-content: space-between; pointer-events: none; font-size: 26px; font-weight: bold; text-shadow: 2px 2px 0 #000; z-index: 5; }
+        #message { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); font-size: 55px; color: #FFD700; font-weight: bold; text-shadow: 4px 4px 0 #000; display: none; pointer-events: none; text-align: center; z-index: 10; transition: transform 0.3s ease; }
+        
+        /* Modern Shop UI */
+        #shopOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 20; opacity: 0; transition: opacity 0.5s ease; }
+        
+        #shopBox { 
+            background: #222; border: 6px solid #FFD700; border-radius: 20px; padding: 30px; 
+            width: 650px; max-height: 85vh; /* Prevents shop from overflowing screen */
+            display: flex; flex-direction: column; text-align: center; 
+            box-shadow: 0 0 40px rgba(255, 215, 0, 0.4); 
+        }
+        
+        #shopBox h1 { color: #FFD700; margin-top: 0; font-size: 36px; text-shadow: 2px 2px 0 #000; letter-spacing: 2px; flex-shrink: 0; }
+        #shopBox h3 { color: #fff; margin-bottom: 20px; font-size: 24px; flex-shrink: 0; }
+        
+        /* Scrollable Grid */
+        #shopGrid { 
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; 
+            margin-bottom: 25px; overflow-y: auto; padding-right: 10px; 
+        }
+        
+        /* Custom LEGO Scrollbar */
+        #shopGrid::-webkit-scrollbar { width: 14px; }
+        #shopGrid::-webkit-scrollbar-track { background: #111; border-radius: 10px; }
+        #shopGrid::-webkit-scrollbar-thumb { background: #FFD700; border-radius: 10px; border: 3px solid #111; }
+        #shopGrid::-webkit-scrollbar-thumb:hover { background: #FFA500; }
+        
+        .shop-item { background: #333; border: 3px solid #777; border-radius: 12px; padding: 15px 10px; cursor: pointer; transition: transform 0.2s, border-color 0.2s, background 0.2s; display: flex; flex-direction: column; justify-content: space-between; height: 110px; }
+        .shop-item:hover { transform: translateY(-5px); background: #444; }
+        .shop-item.affordable:hover { border-color: #FFD700; }
+        .shop-item.expensive { opacity: 0.5; cursor: not-allowed; border-color: #555; }
+        .shop-item.expensive:hover { transform: none; background: #333; }
+        
+        .item-name { font-weight: bold; font-size: 18px; color: #fff; }
+        .item-desc { font-size: 12px; color: #bbb; margin-top: 5px; flex-grow: 1; }
+        .item-price { font-weight: bold; font-size: 16px; color: #FFD700; margin-top: 8px; background: rgba(0,0,0,0.5); border-radius: 5px; padding: 3px; }
+        
+        .shop-btn { padding: 15px 40px; font-size: 24px; font-weight: bold; background: linear-gradient(to bottom, #32CD32, #008000); color: white; border: 4px solid white; border-radius: 15px; cursor: pointer; font-family: inherit; transition: transform 0.2s, background 0.2s; box-shadow: 0 5px 0 #005500; flex-shrink: 0; }
+        .shop-btn:hover { transform: translateY(2px); box-shadow: 0 3px 0 #005500; }
+        .shop-btn:active { transform: translateY(5px); box-shadow: none; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <div>Level: <span id="levelDisplay">1</span></div>
+        <div>Studs: <span id="scoreDisplay">0</span></div>
+    </div>
+    <div id="message"></div>
+
+    <div id="shopOverlay">
+        <div id="shopBox">
+            <h1>🛍️ THE LEGO SHOP</h1>
+            <h3 id="shopStuds">Your Studs: <span style="color:#FFD700">0</span></h3>
+            <div id="shopGrid">
+                <!-- Items are generated here by JavaScript -->
+            </div>
+            <button class="shop-btn" onclick="closeShopAndNextLevel()">Start Next Level! ➡️</button>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const levelDisplay = document.getElementById('levelDisplay');
+    const messageEl = document.getElementById('message');
+    const shopOverlay = document.getElementById('shopOverlay');
+    const shopStuds = document.getElementById('shopStuds');
+    const shopGrid = document.getElementById('shopGrid');
+
+    // --- AUDIO SYSTEM ---
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
+    function playSound(type) {
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        const now = audioCtx.currentTime;
+
+        if (type === 'jump') { osc.type = 'square'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(300, now + 0.1); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1); osc.start(now); osc.stop(now + 0.1); }
+        else if (type === 'coin') { osc.type = 'sine'; osc.frequency.setValueAtTime(800, now); osc.frequency.setValueAtTime(1200, now + 0.05); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1); osc.start(now); osc.stop(now + 0.1); }
+        else if (type === 'stomp') { osc.type = 'triangle'; osc.frequency.setValueAtTime(100, now); osc.frequency.exponentialRampToValueAtTime(50, now + 0.1); gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1); osc.start(now); osc.stop(now + 0.1); }
+        else if (type === 'shoot') { osc.type = 'square'; osc.frequency.setValueAtTime(400, now); osc.frequency.exponentialRampToValueAtTime(200, now + 0.1); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1); osc.start(now); osc.stop(now + 0.1); }
+        else if (type === 'powerup') { osc.type = 'square'; osc.frequency.setValueAtTime(300, now); osc.frequency.linearRampToValueAtTime(600, now + 0.4); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4); osc.start(now); osc.stop(now + 0.4); }
+        else if (type === 'shieldBreak') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, now); osc.frequency.exponentialRampToValueAtTime(50, now + 0.3); gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3); osc.start(now); osc.stop(now + 0.3); }
+        else if (type === 'bossHit') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, now); osc.frequency.exponentialRampToValueAtTime(40, now + 0.3); gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3); osc.start(now); osc.stop(now + 0.3); }
+    }
+
+    // --- GAME DATA & SHOP CATALOG ---
+    let score = 0; let scoreAtLevelStart = 0;
+    let currentLevel = 1; let cameraX = 0;
+    let levelBackup = null; 
+    let gameState = 'playing'; // playing, transitioning, shop
+
+    // Track owned items to hide them
+    let ownedItems = [];
+    
+    // Upgrades that apply logic
+    let upgrades = { doubleJump: false, shield: false, permanentThrower: false, pet: false, hat: 'none', suit: 'classic' };
+
+    const shopCatalog = [
+        { id: 'doubleJump', name: 'Double Jump', desc: 'Jump twice in the air!', price: 50, type: 'upgrade' },
+        { id: 'pet', name: 'Mini-Pet', desc: 'Follows you & magnets studs!', price: 150, type: 'upgrade' },
+        { id: 'shield', name: 'Energy Shield', desc: 'Survive 1 hit every level!', price: 200, type: 'upgrade' },
+        { id: 'permThrower', name: 'Brick Thrower', desc: 'Shoot anytime (Press F)', price: 300, type: 'upgrade' },
+        
+        { id: 'ninja', name: 'Ninja Suit', desc: 'Stealthy black outfit', price: 20, type: 'suit' },
+        { id: 'crown', name: 'Crown Hat', desc: 'Look like royalty', price: 30, type: 'hat' },
+        { id: 'pirate', name: 'Pirate Hat', desc: 'Yarrr!', price: 40, type: 'hat' },
+        { id: 'zombie', name: 'Zombie Skin', desc: 'Green skin, ripped clothes', price: 50, type: 'suit' },
+        { id: 'astro', name: 'Astro Helmet', desc: 'To the moon!', price: 60, type: 'hat' },
+        { id: 'gold', name: 'Gold Suit', desc: 'Very shiny!', price: 100, type: 'suit' }
+    ];
+
+    // Player Object
+    let player = {
+        x: 50, y: 200, w: 30, h: 50, vx: 0, vy: 0, speed: 1.2,
+        baseJump: 14, jumpPower: 14, grounded: false,
+        invincibleTimer: 0, superJumpTimer: 0, throwerTimer: 0,
+        jumpsLeft: 1, combo: 0, shieldActive: false
+    };
+
+    // Helper Pet Object
+    let pet = { x: 50, y: 200, active: false };
+
+    const keys = {};
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    let platforms = [], studs = [], enemies = [], powerups = [], goal = {}, projectiles = [], boss = null;
+    let particles = [], floatingTexts = [];
+
+    // --- LEVEL GENERATOR ---
+    function generateLevel(levelIndex) {
+        platforms = []; studs = []; enemies = []; powerups = []; projectiles = []; boss = null;
+        let currentX = 0; let currentY = 400; 
+
+        if (levelIndex % 5 === 0) {
+            platforms.push({ x: 0, y: 400, w: 1000, h: 100, type: 'normal', color: '#D22B2B' });
+            platforms.push({ x: -50, y: 0, w: 50, h: 500, type: 'normal', color: '#0055A4' }); 
+            platforms.push({ x: 1000, y: 0, w: 50, h: 500, type: 'normal', color: '#0055A4' });
+            goal = { x: 450, y: 200, w: 100, h: 150, color: '#008000', hidden: true };
+            boss = { x: 700, y: 250, w: 100, h: 100, vx: -3, vy: 0, hp: 3 + Math.floor(levelIndex/5), maxHp: 3, invincibleTimer: 0, color: '#8B0000' };
+            return;
+        }
+
+        let levelLength = 2000 + (levelIndex * 500); 
+        let maxGap = Math.min(200, 80 + (levelIndex * 15)); 
+        platforms.push({ x: 0, y: currentY, w: 400, h: 150, type: 'normal', color: '#0055A4' });
+        currentX = 400;
+
+        while (currentX < levelLength) {
+            currentX += 20 + Math.random() * (maxGap - 20);
+            currentY += (Math.random() * 200) - 100;
+            if (currentY > 450) currentY = 450; if (currentY < 150) currentY = 150;
+
+            let w = 150 + Math.random() * 200;
+            let typeRandom = Math.random();
+            let type = 'normal'; let color = '#FFD700';
+            let vx = 0; let minX = 0; let maxX = 0; let life = 0;
+
+            if (typeRandom < 0.15) { type = 'moving'; color = '#8A2BE2'; vx = (Math.random() > 0.5 ? 1 : -1) * (1 + levelIndex*0.1); minX = currentX - 100; maxX = currentX + w + 100; }
+            else if (typeRandom < 0.3) { type = 'crumble'; color = '#8B4513'; life = 30; } 
+            else if (typeRandom < 0.4) { type = 'bounce'; color = '#32CD32'; } 
+            else { color = Math.random() < 0.5 ? '#D22B2B' : '#0055A4'; }
+
+            platforms.push({ x: currentX, y: currentY, w: w, h: 50, type: type, color: color, vx: vx, minX: minX, maxX: maxX, crumbling: false, life: life, maxLife: life });
+
+            if (w > 150 && Math.random() < 0.6) {
+                let isFlying = Math.random() < 0.3; let ey = isFlying ? currentY - 120 : currentY - 40;
+                enemies.push({ x: currentX + w/2, y: ey, w: 40, h: 40, vx: (Math.random() < 0.5 ? 1 : -1) * (1 + levelIndex*0.1), minX: currentX, maxX: currentX + w - 40, flying: isFlying, anchorY: ey, timer: 0, dead: false });
+            } 
+            else if (Math.random() < 0.15) {
+                let pTypes = ['jump', 'invincible'];
+                if(!upgrades.permanentThrower) pTypes.push('thrower'); 
+                powerups.push({ x: currentX + w/2, y: currentY - 30, w: 30, h: 30, type: pTypes[Math.floor(Math.random()*pTypes.length)] });
+            }
+
+            if (Math.random() < 0.6) {
+                for (let i = 0; i < 3; i++) studs.push({ x: currentX + 30 + i*40, y: currentY - 30 });
+            }
+            currentX += w;
+        }
+
+        currentX += 50;
+        platforms.push({ x: currentX, y: 350, w: 800, h: 200, type: 'normal', color: '#008000' });
+        goal = { x: currentX + 300, y: 150, w: 150, h: 200, color: '#008000', hidden: false };
+    }
+
+    // --- UX & SHOP MANAGEMENT ---
+    function triggerLevelComplete() {
+        gameState = 'transitioning';
+        playSound('powerup');
+        showMessage("LEVEL COMPLETE! 🎉", 2000);
+        
+        for(let i=0; i<3; i++) {
+            setTimeout(() => spawnParticles(goal.x + 50 + (Math.random()*100-50), goal.y + (Math.random()*100-50), "#FFD700", 30), i*300);
+        }
+
+        setTimeout(() => { openShop(); }, 2000);
+    }
+
+    function renderShopGrid() {
+        shopGrid.innerHTML = "";
+        shopStuds.innerHTML = `Your Studs: <span style="color:#FFD700">${score}</span>`;
+        
+        let availableItems = shopCatalog.filter(item => !ownedItems.includes(item.id));
+        
+        // SORT ITEMS BY PRICE
+        availableItems.sort((a, b) => a.price - b.price);
+        
+        if (availableItems.length === 0) {
+            shopGrid.innerHTML = `<h3 style="grid-column: span 3; color: #aaa;">You bought everything!</h3>`;
+            return;
+        }
+
+        availableItems.forEach(item => {
+            let canAfford = score >= item.price;
+            let btnClass = canAfford ? 'affordable' : 'expensive';
+            
+            shopGrid.innerHTML += `
+                <div class="shop-item ${btnClass}" onclick="buyItem('${item.id}', ${item.price}, ${canAfford})">
+                    <div class="item-name">${item.name}</div>
+                    <div class="item-desc">${item.desc}</div>
+                    <div class="item-price">🪙 ${item.price}</div>
+                </div>
+            `;
+        });
+    }
+
+    function openShop() {
+        gameState = 'shop';
+        renderShopGrid();
+        shopOverlay.style.display = 'flex';
+        setTimeout(() => shopOverlay.style.opacity = '1', 50);
+    }
+
+    function buyItem(id, price, canAfford) {
+        if (!canAfford) { playSound('stomp'); return; }
+
+        score -= price;
+        ownedItems.push(id); 
+        playSound('coin');
+
+        if (id === 'doubleJump') upgrades.doubleJump = true;
+        else if (id === 'shield') upgrades.shield = true;
+        else if (id === 'permThrower') upgrades.permanentThrower = true;
+        else if (id === 'pet') upgrades.pet = true;
+        else if (['crown', 'pirate', 'astro'].includes(id)) upgrades.hat = id;
+        else if (['ninja', 'zombie', 'gold'].includes(id)) upgrades.suit = id;
+
+        scoreDisplay.innerText = score;
+        renderShopGrid(); 
+    }
+
+    function closeShopAndNextLevel() {
+        shopOverlay.style.opacity = '0';
+        setTimeout(() => {
+            shopOverlay.style.display = 'none';
+            startNewLevel(currentLevel + 1);
+        }, 500);
+    }
+
+    function startNewLevel(levelNum) {
+        gameState = 'playing';
+        currentLevel = levelNum; scoreAtLevelStart = score;
+        levelDisplay.innerText = currentLevel;
+        showMessage(levelNum % 5 === 0 ? "BOSS BATTLE!" : "Level " + currentLevel, 2000);
+        
+        generateLevel(currentLevel);
+        levelBackup = JSON.stringify({ platforms, studs, enemies, powerups, goal, boss });
+        resetPlayerState();
+    }
+
+    function restartCurrentLevel() {
+        showMessage("Try Again!", 1500);
+        score = scoreAtLevelStart; scoreDisplay.innerText = score;
+        let backup = JSON.parse(levelBackup);
+        platforms = backup.platforms; studs = backup.studs; enemies = backup.enemies; powerups = backup.powerups; goal = backup.goal; boss = backup.boss;
+        projectiles = [];
+        resetPlayerState();
+    }
+
+    function resetPlayerState() {
+        player.x = 50; player.y = 100; player.vx = 0; player.vy = 0; player.combo = 0;
+        player.invincibleTimer = 0; player.superJumpTimer = 0; player.throwerTimer = 0; 
+        player.jumpsLeft = upgrades.doubleJump ? 2 : 1;
+        player.shieldActive = upgrades.shield; 
+        
+        if (upgrades.pet) { pet.active = true; pet.x = 50; pet.y = 100; }
+        
+        cameraX = 0; particles = []; floatingTexts = [];
+    }
+
+    function showMessage(text, duration) { messageEl.innerText = text; messageEl.style.display = 'block'; setTimeout(() => messageEl.style.display = 'none', duration); }
+    function spawnParticles(x, y, color, count = 10) { for (let i = 0; i < count; i++) particles.push({ x: x, y: y, vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10, life: 30+Math.random()*30, color: color, size: Math.random()*8+4 }); }
+    function spawnText(x, y, text, color) { floatingTexts.push({ x: x, y: y, text: text, color: color, life: 50 }); }
+    function checkCollision(r1, r2) { return r1.x < r2.x + r2.w && r1.x + r1.w > r2.x && r1.y < r2.y + r2.h && r1.y + r1.h > r2.y; }
+
+    // --- GAME LOOP LOGIC ---
+    let fKeyPressed = false;
+
+    function update() {
+        if (gameState !== 'playing') return; 
+
+        // --- Controls ---
+        if (keys['ArrowLeft'] || keys['KeyA']) player.vx -= player.speed;
+        if (keys['ArrowRight'] || keys['KeyD']) player.vx += player.speed;
+        
+        let upPressed = keys['ArrowUp'] || keys['KeyW'] || keys['Space'];
+        if (upPressed && !player.upHeld && player.jumpsLeft > 0) {
+            player.vy = -player.jumpPower; player.grounded = false; player.jumpsLeft--; playSound('jump');
+            if (player.superJumpTimer > 0) spawnText(player.x, player.y, "BOING!", "#00FFFF");
+        }
+        player.upHeld = upPressed;
+
+        if (keys['KeyF'] && !fKeyPressed && (player.throwerTimer > 0 || upgrades.permanentThrower)) {
+            projectiles.push({ x: player.x + 15, y: player.y + 20, w: 12, h: 12, vx: (player.vx >= 0 ? 10 : -10), life: 80 });
+            playSound('shoot'); fKeyPressed = true;
+        }
+        if (!keys['KeyF']) fKeyPressed = false;
+
+        // Physics
+        player.vx *= 0.82; player.vy += 0.55; 
+
+        if (player.invincibleTimer > 0) player.invincibleTimer--;
+        if (player.throwerTimer > 0) player.throwerTimer--;
+        if (player.superJumpTimer > 0) { player.superJumpTimer--; player.jumpPower = player.baseJump * 1.5; } 
+        else { player.jumpPower = player.baseJump; }
+
+        // Pet Logic 
+        if (pet.active) {
+            pet.x += ((player.x - (player.vx >= 0 ? 40 : -10)) - pet.x) * 0.1;
+            pet.y += ((player.y - 30) - pet.y) * 0.1;
+            for (let s of studs) {
+                let dx = player.x - s.x; let dy = player.y - s.y;
+                if (Math.sqrt(dx*dx + dy*dy) < 150) { s.x += dx * 0.1; s.y += dy * 0.1; }
+            }
+        }
+
+        // --- Platforms ---
+        let pVx = 0;
+        for (let i = platforms.length - 1; i >= 0; i--) {
+            let p = platforms[i];
+            if (p.type === 'moving') { p.x += p.vx; if (p.x <= p.minX || p.x + p.w >= p.maxX) p.vx *= -1; }
+            if (p.crumbling) {
+                p.life--;
+                if (p.life <= 0) { spawnParticles(p.x + p.w/2, p.y, p.color, 20); platforms.splice(i, 1); continue; }
+            }
+        }
+
+        // Collisions
+        player.x += player.vx;
+        for (let p of platforms) {
+            if (checkCollision(player, p)) {
+                if (player.vx > 0) player.x = p.x - player.w; else if (player.vx < 0) player.x = p.x + p.w; 
+                player.vx = 0;
+            }
+        }
+
+        player.y += player.vy; player.grounded = false;
+        for (let p of platforms) {
+            if (checkCollision(player, p)) {
+                if (player.vy > 0) { 
+                    player.y = p.y - player.h; player.grounded = true; player.jumpsLeft = upgrades.doubleJump ? 2 : 1; player.combo = 0;
+                    if (p.type === 'moving') pVx = p.vx; 
+                    if (p.type === 'crumble') p.crumbling = true; 
+                    if (p.type === 'bounce') { player.vy = -20; playSound('jump'); spawnText(p.x, p.y, "BOING!", "#32CD32"); player.grounded = false; } 
+                    else player.vy = 0;
+                } else if (player.vy < 0) { player.y = p.y + p.h; player.vy = 0; }
+            }
+        }
+        player.x += pVx; 
+
+        // --- Projectiles ---
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+            let pr = projectiles[i]; pr.x += pr.vx; pr.life--;
+            if (pr.life <= 0) projectiles.splice(i, 1);
+        }
+
+        // --- Boss Logic ---
+        if (boss && boss.hp > 0) {
+            boss.x += boss.vx; boss.vy += 0.55; boss.y += boss.vy; 
+            if (boss.y > 300) { boss.y = 300; boss.vy = -10; } 
+            if (boss.x < 50 || boss.x > 850) boss.vx *= -1; 
+            if (boss.invincibleTimer > 0) boss.invincibleTimer--;
+
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                if (checkCollision(projectiles[i], boss) && boss.invincibleTimer <= 0) { damageBoss(); projectiles.splice(i, 1); }
+            }
+
+            if (checkCollision(player, boss)) {
+                if (player.invincibleTimer > 0 || (player.vy > 0 && player.y + player.h < boss.y + 30)) {
+                    if (boss.invincibleTimer <= 0) damageBoss();
+                    player.vy = -15; 
+                } else if (boss.invincibleTimer <= 0) {
+                    playerHit();
+                }
+            }
+        }
+
+        function damageBoss() {
+            boss.hp--; boss.invincibleTimer = 60; playSound('bossHit'); spawnParticles(boss.x + 50, boss.y, "#8B0000", 30);
+            if(boss.hp <= 0) { 
+                spawnText(boss.x, boss.y, "DEFEATED!", "#FFD700"); score += 50; scoreDisplay.innerText = score; 
+                goal.hidden = false; playSound('powerup');
+            }
+        }
+
+        function playerHit() {
+            if (player.shieldActive) {
+                player.shieldActive = false; player.invincibleTimer = 60; player.vy = -12; 
+                playSound('shieldBreak'); spawnParticles(player.x, player.y, "#00FFFF", 30); spawnText(player.x, player.y - 20, "SHIELD BROKEN!", "#00FFFF");
+            } else { restartCurrentLevel(); }
+        }
+
+        // --- Enemies ---
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            let e = enemies[i]; if (e.dead) continue;
+            
+            if (e.flying) { e.timer += 0.05; e.y = e.anchorY + Math.sin(e.timer) * 50; } 
+            else { e.x += e.vx; if (e.x <= e.minX || e.x + e.w >= e.maxX) e.vx *= -1; }
+
+            for (let j = projectiles.length - 1; j >= 0; j--) {
+                if (checkCollision(projectiles[j], e)) { e.dead = true; spawnParticles(e.x, e.y, "#8B0000", 15); spawnText(e.x, e.y, "SMASH!", "#FF4500"); playSound('stomp'); projectiles.splice(j, 1); }
+            }
+
+            if (checkCollision(player, e)) {
+                if (player.invincibleTimer > 0) {
+                    e.dead = true; spawnParticles(e.x, e.y, "#8B0000", 15); spawnText(e.x, e.y, "SMASH!", "#FF4500"); playSound('stomp');
+                } else if (player.vy > 0 && player.y + player.h < e.y + 25) {
+                    e.dead = true; player.vy = -12; player.jumpsLeft = upgrades.doubleJump ? 2 : 1;
+                    player.combo++; let mult = player.combo > 1 ? player.combo : 1; score += mult; scoreDisplay.innerText = score;
+                    spawnParticles(e.x, e.y, "#8B0000", 15); playSound('stomp');
+                    if (mult > 1) spawnText(e.x, e.y - 20, "COMBO x" + mult + "!", "#FFD700"); else spawnText(e.x, e.y, "POP!", "#FFF");
+                } else { playerHit(); }
+            }
+        }
+
+        // --- Items ---
+        for (let i = powerups.length - 1; i >= 0; i--) {
+            let p = powerups[i];
+            if (checkCollision(player, p)) {
+                playSound('powerup');
+                if (p.type === 'jump') { player.superJumpTimer = 800; spawnText(p.x, p.y, "SUPER JUMP!", "#00FFFF"); }
+                else if (p.type === 'invincible') { player.invincibleTimer = 800; spawnText(p.x, p.y, "INVINCIBLE!", "#FF00FF"); }
+                else if (p.type === 'thrower') { player.throwerTimer = 800; spawnText(p.x, p.y, "FIRE BRICK!", "#FF4500"); }
+                powerups.splice(i, 1);
+            }
+        }
+
+        for (let i = studs.length - 1; i >= 0; i--) {
+            let s = studs[i];
+            if (checkCollision(player, { x: s.x - 10, y: s.y - 10, w: 20, h: 20 })) {
+                studs.splice(i, 1); score++; scoreDisplay.innerText = score; playSound('coin'); spawnParticles(s.x, s.y, "#FFD700", 5); spawnText(s.x, s.y, "+1", "#FFD700");
+            }
+        }
+
+        // --- Goal Reached! ---
+        if (!goal.hidden && checkCollision(player, goal)) triggerLevelComplete(); 
+
+        if (player.y > canvas.height + 150) restartCurrentLevel();
+
+        // Particles & Text Update
+        for (let i = particles.length - 1; i >= 0; i--) { let p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life--; if (p.life <= 0) particles.splice(i, 1); }
+        for (let i = floatingTexts.length - 1; i >= 0; i--) { let t = floatingTexts[i]; t.y -= 1; t.life--; if (t.life <= 0) floatingTexts.splice(i, 1); }
+
+        cameraX += ((player.x - canvas.width / 3) - cameraX) * 0.1;
+        if (cameraX < 0) cameraX = 0;
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save(); ctx.translate(-cameraX, 0);
+
+        for (let p of platforms) {
+            ctx.fillStyle = p.color; ctx.globalAlpha = p.type === 'crumble' ? p.life / p.maxLife : 1.0;
+            ctx.fillRect(p.x, p.y, p.w, p.h);
+            for (let i = 10; i < p.w; i += 30) {
+                if (p.type === 'bounce') { ctx.fillStyle = "#228B22"; ctx.fillRect(p.x + i, p.y - 15, 18, 15); } 
+                else { ctx.fillStyle = p.color; ctx.fillRect(p.x + i, p.y - 8, 18, 8); }
+            }
+            ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 3; ctx.strokeRect(p.x, p.y, p.w, p.h); ctx.globalAlpha = 1.0;
+        }
+
+        if (!goal.hidden) { ctx.fillStyle = goal.color; ctx.fillRect(goal.x, goal.y, goal.w, goal.h); ctx.fillStyle = "white"; ctx.font = "bold 24px Arial"; ctx.fillText("GOAL", goal.x + 40, goal.y + 100); }
+
+        for (let s of studs) { ctx.beginPath(); ctx.arc(s.x, s.y, 12, 0, Math.PI * 2); ctx.fillStyle = "#FFD700"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#B8860B"; ctx.stroke(); ctx.beginPath(); ctx.arc(s.x, s.y - 3, 6, 0, Math.PI * 2); ctx.stroke(); }
+
+        for (let p of powerups) {
+            if (p.type === 'jump') ctx.fillStyle = "#00FFFF"; 
+            if (p.type === 'thrower') ctx.fillStyle = "#FF4500"; 
+            if (p.type === 'invincible') { const c = ["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#9400D3"]; ctx.fillStyle = c[Math.floor(Date.now() / 100) % c.length]; }
+            ctx.fillRect(p.x, p.y, p.w, p.h); ctx.strokeRect(p.x, p.y, p.w, p.h); ctx.fillRect(p.x + 5, p.y - 5, 20, 5); 
+        }
+
+        for (let e of enemies) {
+            if (!e.dead) {
+                ctx.fillStyle = "#8B0000"; ctx.fillRect(e.x, e.y, e.w, e.h);
+                if (e.flying) { ctx.fillStyle = "white"; ctx.fillRect(e.x - 10, e.y + 10, 15, 10); ctx.fillRect(e.x + e.w - 5, e.y + 10, 15, 10); } 
+                ctx.fillStyle = "white"; ctx.fillRect(e.x + 5 + (e.vx > 0 ? 10 : 0), e.y + 10, 10, 10); ctx.fillRect(e.x + 20 + (e.vx > 0 ? 10 : 0), e.y + 10, 10, 10);
+                ctx.fillStyle = "black"; ctx.fillRect(e.x + 8 + (e.vx > 0 ? 10 : 0), e.y + 12, 4, 4); ctx.fillRect(e.x + 23 + (e.vx > 0 ? 10 : 0), e.y + 12, 4, 4);
+            }
+        }
+
+        if (boss && boss.hp > 0) {
+            ctx.fillStyle = boss.invincibleTimer > 0 ? "#FF0000" : boss.color; ctx.fillRect(boss.x, boss.y, boss.w, boss.h);
+            ctx.fillStyle = "white"; ctx.font = "bold 20px Arial"; ctx.fillText("BOSS HP: " + boss.hp, boss.x + 5, boss.y - 10);
+            ctx.fillStyle = "white"; ctx.fillRect(boss.x + 20, boss.y + 20, 20, 20); ctx.fillRect(boss.x + 60, boss.y + 20, 20, 20); 
+            ctx.fillStyle = "black"; ctx.fillRect(boss.x + 25, boss.y + 25, 10, 10); ctx.fillRect(boss.x + 65, boss.y + 25, 10, 10); 
+        }
+
+        for (let pr of projectiles) { ctx.fillStyle = "#FF4500"; ctx.fillRect(pr.x, pr.y, pr.w, pr.h); }
+        for (let p of particles) { ctx.fillStyle = p.color; ctx.globalAlpha = p.life / 50; ctx.fillRect(p.x, p.y, p.size, p.size); ctx.globalAlpha = 1.0; }
+
+        if (player.shieldActive) {
+            ctx.beginPath(); ctx.arc(player.x + 15, player.y + 25, 40, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(0, 255, 255, 0.3)"; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0, 255, 255, 0.8)"; ctx.stroke();
+        }
+
+        let isFlashing = player.invincibleTimer > 0 && Math.floor(Date.now() / 50) % 2 === 0;
+        if (!isFlashing) {
+            let pantColor = "#0055A4"; let shirtColor = "#D22B2B"; let skinColor = "#FFD700";
+            if (upgrades.suit === 'ninja') { pantColor = "#111"; shirtColor = "#222"; }
+            if (upgrades.suit === 'zombie') { pantColor = "#556B2F"; shirtColor = "#8B0000"; skinColor = "#8FBC8F"; }
+            if (upgrades.suit === 'gold') { pantColor = "#DAA520"; shirtColor = "#FFD700"; }
+            
+            if (player.superJumpTimer > 0) pantColor = "#00FFFF";
+            if (player.throwerTimer > 0 || upgrades.permanentThrower) shirtColor = "#FF4500";
+
+            ctx.fillStyle = pantColor; ctx.fillRect(player.x, player.y + 30, player.w, 20); 
+            ctx.fillStyle = shirtColor; ctx.fillRect(player.x, player.y + 15, player.w, 15); 
+            ctx.fillStyle = skinColor; ctx.fillRect(player.x + 5, player.y, 20, 15); 
+            
+            if (upgrades.hat === 'crown') { ctx.fillStyle = "#FFD700"; ctx.fillRect(player.x, player.y - 10, 30, 10); ctx.fillRect(player.x, player.y - 15, 5, 5); ctx.fillRect(player.x+12, player.y - 15, 5, 5); ctx.fillRect(player.x+25, player.y - 15, 5, 5); }
+            if (upgrades.hat === 'pirate') { ctx.fillStyle = "#222"; ctx.fillRect(player.x - 5, player.y - 5, 40, 8); ctx.fillRect(player.x + 5, player.y - 15, 20, 10); }
+            if (upgrades.hat === 'astro') { ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.beginPath(); ctx.arc(player.x+15, player.y+8, 16, 0, Math.PI*2); ctx.fill(); ctx.stroke(); }
+        }
+
+        if (pet.active) {
+            ctx.fillStyle = "#FF1493"; ctx.fillRect(pet.x, pet.y, 15, 15);
+            ctx.fillStyle = "#FFF"; ctx.fillRect(pet.x+2, pet.y+4, 4, 4); ctx.fillRect(pet.x+9, pet.y+4, 4, 4); 
+        }
+
+        for (let t of floatingTexts) { ctx.fillStyle = t.color; ctx.font = "bold 20px 'Comic Sans MS'"; ctx.globalAlpha = t.life / 50; ctx.fillText(t.text, t.x, t.y); ctx.globalAlpha = 1.0; }
+        ctx.restore();
+    }
+
+    function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
+    startNewLevel(1); gameLoop();
+</script>
+</body>
+</html>

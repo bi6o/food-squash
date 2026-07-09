@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Squash</title>
+    <style>
+        /* === THEMES === */
+        :root, body.theme-default {
+            --bg-color: #f1f8e9; 
+            --board-border: #1b5e20; 
+            --cell-1: #ffffff;
+            --cell-2: #81c784; 
+            --text-color: #1b5e20;
+            
+            --p1-color: #2e7d32; 
+            --p1-bg: #c8e6c9;
+            --p1-name: "Green";
+            
+            --p2-color: #616161; 
+            --p2-bg: #e0e0e0;
+            --p2-name: "Grey";
+        }
+
+        body.theme-ocean {
+            --bg-color: #e3f2fd; 
+            --board-border: #0d47a1; 
+            --cell-1: #ffffff;
+            --cell-2: #90caf9; 
+            --text-color: #0d47a1;
+            
+            --p1-color: #1565c0; 
+            --p1-bg: #bbdefb;
+            --p1-name: "Blue";
+            
+            --p2-color: #e65100; 
+            --p2-bg: #ffe0b2;
+            --p2-name: "Orange";
+        }
+
+        body.theme-neon {
+            --bg-color: #121212; 
+            --board-border: #4a148c; 
+            --cell-1: #212121;
+            --cell-2: #311b92; 
+            --text-color: #ea80fc;
+            
+            --p1-color: #00e5ff; 
+            --p1-bg: rgba(0, 229, 255, 0.2);
+            --p1-name: "Cyan";
+            
+            --p2-color: #ff1744; 
+            --p2-bg: rgba(255, 23, 68, 0.2);
+            --p2-name: "Pink";
+        }
+        
+        body.theme-sunset {
+            --bg-color: #fff3e0; 
+            --board-border: #bf360c; 
+            --cell-1: #ffffff;
+            --cell-2: #ffab91; 
+            --text-color: #bf360c;
+            
+            --p1-color: #d84315; 
+            --p1-bg: #ffccbc;
+            --p1-name: "Red";
+            
+            --p2-color: #4a148c; 
+            --p2-bg: #e1bee7;
+            --p2-name: "Purple";
+        }
+
+        /* === CORE STYLES === */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: var(--text-color);
+            transition: background-color 0.4s, color 0.4s;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        select, button {
+            padding: 10px 15px;
+            font-size: 1rem;
+            border: 2px solid var(--board-border);
+            border-radius: 8px;
+            background-color: var(--cell-1);
+            color: var(--text-color);
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        button:hover { background-color: var(--cell-2); }
+
+        #status {
+            font-size: 1.4rem;
+            font-weight: bold;
+            background: var(--cell-1);
+            padding: 8px 25px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            border: 3px solid transparent;
+        }
+
+        .p1-turn { color: var(--p1-color); border-color: var(--p1-color) !important; }
+        .p2-turn { color: var(--p2-color); border-color: var(--p2-color) !important; }
+
+        /* === GRAVEYARDS === */
+        .graveyard {
+            display: flex;
+            align-items: center;
+            width: 410px;
+            min-height: 40px;
+            background: var(--cell-1);
+            border: 3px dashed var(--board-border);
+            border-radius: 10px;
+            padding: 5px 10px;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+        .graveyard-title {
+            font-weight: bold;
+            margin-right: 15px;
+            font-size: 0.9rem;
+            min-width: 120px;
+        }
+        .eaten-list {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        .eaten-piece {
+            font-size: 1.5rem;
+            filter: grayscale(100%) opacity(0.6);
+        }
+
+        /* === BOARD === */
+        #board {
+            display: grid;
+            grid-template-columns: repeat(5, 80px);
+            grid-template-rows: repeat(5, 80px);
+            border: 6px solid var(--board-border);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            background-color: var(--board-border);
+            gap: 1px; 
+        }
+
+        .cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+            user-select: none;
+            background-color: var(--cell-1);
+        }
+        .cell:nth-child(even) { background-color: var(--cell-2); }
+
+        /* === PIECES & AURAS === */
+        .piece {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            z-index: 2;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            box-sizing: border-box;
+        }
+
+        .piece.p1 { background-color: var(--p1-bg); border: 4px solid var(--p1-color); }
+        .piece.p2 { background-color: var(--p2-bg); border: 4px solid var(--p2-color); }
+
+        .selected {
+            outline: 5px solid #ffeb3b;
+            outline-offset: -5px;
+            z-index: 1;
+        }
+
+        .move-hint::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: var(--text-color);
+            opacity: 0.6;
+            border: 2px solid var(--cell-1);
+            border-radius: 50%;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        .attack-hint::after {
+            content: '🎯';
+            font-size: 2rem;
+            position: absolute;
+            z-index: 3;
+            pointer-events: none;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+
+        #hint-box {
+            margin-top: 15px;
+            padding: 15px;
+            background: var(--cell-1);
+            border: 2px solid var(--board-border);
+            border-radius: 10px;
+            width: 380px;
+            text-align: center;
+            font-size: 0.95rem;
+            min-height: 45px;
+        }
+    </style>
+</head>
+<body class="theme-default">
+
+    <div class="header-controls">
+        <select id="game-mode" onchange="initGame()">
+            <option value="pve">Player vs Bot</option>
+            <option value="pvp">Player vs Player</option>
+        </select>
+        <select id="theme-selector" onchange="changeTheme()">
+            <option value="theme-default">Classic Green</option>
+            <option value="theme-ocean">Ocean Blue</option>
+            <option value="theme-neon">Neon Night</option>
+            <option value="theme-sunset">Sunset</option>
+        </select>
+        <button onclick="initGame()">Restart Game</button>
+    </div>
+
+    <div id="status" class="p1-turn">Player 1's Turn</div>
+    
+    <div class="graveyard">
+        <div class="graveyard-title p2-turn">P2 Trophies:</div>
+        <div id="p2-eaten" class="eaten-list"></div>
+    </div>
+
+    <div id="board"></div>
+
+    <div class="graveyard">
+        <div class="graveyard-title p1-turn">P1 Trophies:</div>
+        <div id="p1-eaten" class="eaten-list"></div>
+    </div>
+    
+    <div id="hint-box">Select a piece to see its rules!</div>
+
+    <script>
+        const BOARD_SIZE = 5;
+        const EMOJIS = { 'pineapple': '🍍', 'pizza': '🍕', 'pretzel': '🥨', 'hamburger': '🍔', 'chocolate': '🍫' };
+
+        let board = [];
+        let currentPlayer = 1;
+        let selectedCell = null;
+        let validMoves = [];
+        let p1Captured = [];
+        let p2Captured = [];
+        let gameMode = 'pve';
+
+        function changeTheme() {
+            document.body.className = document.getElementById('theme-selector').value;
+            updateStatus();
+        }
+
+        function initGame() {
+            gameMode = document.getElementById('game-mode').value;
+            board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
+
+            // Player 2 (Top side)
+            board[0][0] = { player: 2, type: 'pineapple' }; board[0][1] = { player: 2, type: 'pizza' }; board[0][2] = { player: 2, type: 'pretzel' }; board[0][3] = { player: 2, type: 'hamburger' }; board[0][4] = { player: 2, type: 'chocolate' }; 
+            // Player 1 (Bottom side)
+            board[4][0] = { player: 1, type: 'pineapple' }; board[4][1] = { player: 1, type: 'pizza' }; board[4][2] = { player: 1, type: 'pretzel' }; board[4][3] = { player: 1, type: 'hamburger' }; board[4][4] = { player: 1, type: 'chocolate' }; 
+
+            currentPlayer = 1;
+            selectedCell = null;
+            validMoves = [];
+            p1Captured = [];
+            p2Captured = [];
+            
+            updateStatus();
+            updateHintText(null);
+            renderGraveyards();
+            renderBoard();
+        }
+
+        function getStyleVar(varName) {
+            return getComputedStyle(document.body).getPropertyValue(varName).trim().replace(/['"]/g, '');
+        }
+
+        function updateStatus() {
+            const statusEl = document.getElementById('status');
+            const p1Name = getStyleVar('--p1-name') || 'Player 1';
+            const p2Name = getStyleVar('--p2-name') || 'Player 2';
+
+            if (currentPlayer === 1) {
+                statusEl.innerText = `Player 1's Turn (${p1Name})`;
+                statusEl.className = "p1-turn";
+            } else {
+                if (gameMode === 'pve') {
+                    statusEl.innerText = `Bot's Turn (${p2Name}) - Thinking...`;
+                } else {
+                    statusEl.innerText = `Player 2's Turn (${p2Name})`;
+                }
+                statusEl.className = "p2-turn";
+            }
+        }
+
+        function isEnemyChocolateAlive(player) {
+            for (let y = 0; y < BOARD_SIZE; y++) {
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    if (board[y][x] && board[y][x].player !== player && board[y][x].type === 'chocolate') return true;
+                }
+            }
+            return false;
+        }
+
+        function updateHintText(piece) {
+            const hintBox = document.getElementById('hint-box');
+            if (!piece) {
+                hintBox.innerHTML = "<strong>Welcome to Food Squash!</strong><br>Squash all opponent's food to win.";
+                return;
+            }
+            const isChocAlive = isEnemyChocolateAlive(piece.player);
+            switch(piece.type) {
+                case 'pretzel': hintBox.innerHTML = "<strong>Pretzel:</strong> Slides orthogonally up to 2 squares. Stops if it hits a piece."; break;
+                case 'pineapple': hintBox.innerHTML = "<strong>Pineapple:</strong> Teleports! Moves like a Knight (L-shape) OR exactly 1 square away simulating a U-turn."; break;
+                case 'chocolate': hintBox.innerHTML = "<strong>Chocolate:</strong> Moves 1 square anywhere. Can ONLY eat enemies if moving BACKWARDS (towards your starting edge)."; break;
+                case 'pizza': hintBox.innerHTML = "<strong>Pizza:</strong> Moves up to 3 squares (bounces off walls, lands on empty). OR Remote Attack an enemy exactly 2 squares away orthogonally."; break;
+                case 'hamburger': 
+                    if (isChocAlive) hintBox.innerHTML = "<strong>Hamburger:</strong> Slides diagonally, jumping over pieces. 🔴 <em>Currently restricted: Can ONLY eat Chocolate!</em>";
+                    else hintBox.innerHTML = "<strong>Hamburger:</strong> Slides diagonally, jumping over pieces. 🟢 <em>Chocolate is dead! UNLEASHED (can eat anything)!</em>";
+                    break;
+            }
+        }
+
+        function getValidActions(x, y) {
+            const piece = board[y][x];
+            let moves = [];
+            if (!piece) return moves;
+
+            const addMove = (targetX, targetY, action = 'move') => {
+                if (targetX >= 0 && targetX < BOARD_SIZE && targetY >= 0 && targetY < BOARD_SIZE) {
+                    moves.push({ x: targetX, y: targetY, action });
+                }
+            };
+
+            if (piece.type === 'pretzel') {
+                const dirs = [[1,0], [-1,0], [0,1], [0,-1]];
+                dirs.forEach(([dx, dy]) => {
+                    for (let i = 1; i <= 2; i++) {
+                        let tx = x + dx * i, ty = y + dy * i;
+                        if (tx < 0 || tx >= BOARD_SIZE || ty < 0 || ty >= BOARD_SIZE) break;
+                        let target = board[ty][tx];
+                        if (target === null) addMove(tx, ty);
+                        else if (target.player !== piece.player) { addMove(tx, ty); break; } else break;
+                    }
+                });
+            } else if (piece.type === 'hamburger') {
+                const dirs = [[1,1], [1,-1], [-1,1], [-1,-1]];
+                const enemyChocAlive = isEnemyChocolateAlive(piece.player);
+                dirs.forEach(([dx, dy]) => {
+                    for (let i = 1; i < BOARD_SIZE; i++) {
+                        let tx = x + dx * i, ty = y + dy * i;
+                        if (tx < 0 || tx >= BOARD_SIZE || ty < 0 || ty >= BOARD_SIZE) break;
+                        let target = board[ty][tx];
+                        if (target === null) addMove(tx, ty);
+                        else if (target.player !== piece.player) {
+                            if (!enemyChocAlive || target.type === 'chocolate') addMove(tx, ty);
+                        }
+                    }
+                });
+            } else if (piece.type === 'chocolate') {
+                const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+                dirs.forEach(([dx, dy]) => {
+                    let tx = x + dx, ty = y + dy;
+                    if (tx >= 0 && tx < BOARD_SIZE && ty >= 0 && ty < BOARD_SIZE) {
+                        let target = board[ty][tx];
+                        if (target === null) addMove(tx, ty);
+                        else if (target.player !== piece.player) {
+                            if ((piece.player === 1 && ty > y) || (piece.player === 2 && ty < y)) addMove(tx, ty);
+                        }
+                    }
+                });
+            } else if (piece.type === 'pizza') {
+                const attackDirs = [[2,0], [-2,0], [0,2], [0,-2]];
+                attackDirs.forEach(([dx, dy]) => {
+                    let tx = x + dx, ty = y + dy;
+                    if (tx >= 0 && tx < BOARD_SIZE && ty >= 0 && ty < BOARD_SIZE) {
+                        let target = board[ty][tx];
+                        if (target !== null && target.player !== piece.player) addMove(tx, ty, 'attack');
+                    }
+                });
+                const moveDirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+                moveDirs.forEach(([dx, dy]) => {
+                    let cx = x, cy = y, cdx = dx, cdy = dy;
+                    for (let step = 1; step <= 3; step++) {
+                        cx += cdx; cy += cdy;
+                        if (cx < 0) { cx = 1; cdx = -cdx; } else if (cx >= BOARD_SIZE) { cx = BOARD_SIZE - 2; cdx = -cdx; }
+                        if (cy < 0) { cy = 1; cdy = -cdy; } else if (cy >= BOARD_SIZE) { cy = BOARD_SIZE - 2; cdy = -cdy; }
+                        if (board[cy][cx] === null) addMove(cx, cy, 'move');
+                    }
+                });
+            } else if (piece.type === 'pineapple') {
+                const pineDirs = [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 2], [1, -2], [-1, 2], [-1, -2], [2, 1], [2, -1], [-2, 1], [-2, -1]];
+                pineDirs.forEach(([dx, dy]) => {
+                    let tx = x + dx, ty = y + dy;
+                    if (tx >= 0 && tx < BOARD_SIZE && ty >= 0 && ty < BOARD_SIZE) {
+                        let target = board[ty][tx];
+                        if (target === null || target.player !== piece.player) addMove(tx, ty);
+                    }
+                });
+            }
+
+            let uniqueMoves = [];
+            let signatures = new Set();
+            for (let m of moves) {
+                let sig = `${m.x},${m.y},${m.action}`;
+                if (!signatures.has(sig)) { signatures.add(sig); uniqueMoves.push(m); }
+            }
+            return uniqueMoves;
+        }
+
+        function checkWinCondition() {
+            let p1Count = 0, p2Count = 0;
+            for (let y = 0; y < BOARD_SIZE; y++) {
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    if (board[y][x]) {
+                        if (board[y][x].player === 1) p1Count++;
+                        if (board[y][x].player === 2) p2Count++;
+                    }
+                }
+            }
+            if (p1Count === 0) {
+                setTimeout(() => alert("Player 2 Wins! All Player 1 food was squashed!"), 100);
+                return true;
+            } else if (p2Count === 0) {
+                setTimeout(() => alert("Player 1 Wins! All Player 2 food was squashed!"), 100);
+                return true;
+            }
+            return false;
+        }
+
+        function processCapture(targetPiece) {
+            if (!targetPiece) return;
+            if (currentPlayer === 1) p1Captured.push(targetPiece.type);
+            else p2Captured.push(targetPiece.type);
+            renderGraveyards();
+        }
+
+        function renderGraveyards() {
+            document.getElementById('p1-eaten').innerHTML = p1Captured.map(type => `<div class="eaten-piece">${EMOJIS[type]}</div>`).join('');
+            document.getElementById('p2-eaten').innerHTML = p2Captured.map(type => `<div class="eaten-piece">${EMOJIS[type]}</div>`).join('');
+        }
+
+        function executeAction(sx, sy, tx, ty, action) {
+            let piece = board[sy][sx];
+            let targetPiece = board[ty][tx];
+
+            if (action === 'move') {
+                processCapture(targetPiece);
+                board[ty][tx] = piece;
+                board[sy][sx] = null;
+            } else if (action === 'attack') {
+                processCapture(targetPiece);
+                board[ty][tx] = null;
+            }
+
+            selectedCell = null;
+            validMoves = [];
+            updateHintText(null);
+            
+            if (!checkWinCondition()) {
+                currentPlayer = currentPlayer === 1 ? 2 : 1;
+                updateStatus();
+                if (gameMode === 'pve' && currentPlayer === 2) {
+                    setTimeout(makeBotMove, 800);
+                }
+            }
+            renderBoard();
+        }
+
+        function makeBotMove() {
+            let allBotMoves = [];
+            
+            // Gather every possible move for all Player 2 pieces
+            for (let y = 0; y < BOARD_SIZE; y++) {
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    if (board[y][x] && board[y][x].player === 2) {
+                        let moves = getValidActions(x, y);
+                        moves.forEach(m => allBotMoves.push({ sx: x, sy: y, move: m }));
+                    }
+                }
+            }
+
+            if (allBotMoves.length === 0) {
+                // Highly unlikely, but just in case bot is trapped
+                currentPlayer = 1;
+                updateStatus();
+                return;
+            }
+
+            // Simple AI: Prioritize captures (eating food)
+            let captures = allBotMoves.filter(m => m.move.action === 'attack' || board[m.move.y][m.move.x] !== null);
+            
+            let chosenMove;
+            if (captures.length > 0) {
+                chosenMove = captures[Math.floor(Math.random() * captures.length)];
+            } else {
+                chosenMove = allBotMoves[Math.floor(Math.random() * allBotMoves.length)];
+            }
+
+            executeAction(chosenMove.sx, chosenMove.sy, chosenMove.move.x, chosenMove.move.y, chosenMove.move.action);
+        }
+
+        function handleCellClick(x, y) {
+            // Prevent human interaction during the Bot's turn
+            if (gameMode === 'pve' && currentPlayer === 2) return;
+
+            let clickedPiece = board[y][x];
+            let executed = false;
+
+            if (selectedCell) {
+                let moveMatch = validMoves.find(m => m.x === x && m.y === y);
+                if (moveMatch) {
+                    executeAction(selectedCell.x, selectedCell.y, x, y, moveMatch.action);
+                    executed = true;
+                }
+            }
+
+            if (!executed) {
+                if (clickedPiece && clickedPiece.player === currentPlayer) {
+                    selectedCell = { x, y };
+                    validMoves = getValidActions(x, y);
+                    updateHintText(clickedPiece);
+                } else {
+                    selectedCell = null;
+                    validMoves = [];
+                    updateHintText(null);
+                }
+                renderBoard();
+            }
+        }
+
+        function renderBoard() {
+            const boardEl = document.getElementById('board');
+            boardEl.innerHTML = '';
+
+            for (let y = 0; y < BOARD_SIZE; y++) {
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    let cellDiv = document.createElement('div');
+                    cellDiv.className = 'cell';
+                    cellDiv.onclick = () => handleCellClick(x, y);
+
+                    if (selectedCell && selectedCell.x === x && selectedCell.y === y) {
+                        cellDiv.classList.add('selected');
+                    }
+
+                    let hint = validMoves.find(m => m.x === x && m.y === y);
+                    if (hint) cellDiv.classList.add(hint.action === 'attack' ? 'attack-hint' : 'move-hint');
+
+                    let piece = board[y][x];
+                    if (piece) {
+                        let pieceDiv = document.createElement('div');
+                        pieceDiv.className = `piece p${piece.player}`;
+                        pieceDiv.innerText = EMOJIS[piece.type];
+                        cellDiv.appendChild(pieceDiv);
+                    }
+
+                    boardEl.appendChild(cellDiv);
+                }
+            }
+        }
+
+        initGame();
+    </script>
+</body>
+</html>

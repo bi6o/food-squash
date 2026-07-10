@@ -2,15 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- Critical for mobile: locks zooming and scaling -->
+    <!-- Critical for mobile/tablet: locks zooming and scaling -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LEGO Jumper - MOBILE EDITION</title>
+    <title>LEGO Jumper - TABLET EDITION</title>
     <style>
         body { 
             margin: 0; padding: 0; background-color: #1a1a2e; display: flex; 
             justify-content: center; align-items: center; height: 100vh; 
             font-family: 'Comic Sans MS', 'Arial', sans-serif; overflow: hidden; 
             color: white; touch-action: none; /* Stops mobile pull-to-refresh */
+            -webkit-user-select: none; user-select: none; /* Prevents text highlighting when tapping */
         }
         
         /* Auto-scales to fit any screen */
@@ -49,22 +50,26 @@
         
         .shop-btn { padding: 12px 20px; font-size: 20px; font-weight: bold; background: linear-gradient(to bottom, #32CD32, #008000); color: white; border: 4px solid white; border-radius: 15px; cursor: pointer; flex-shrink: 0; }
         
-        /* Mobile Touch Controls */
-        #touchControls { position: absolute; bottom: 20px; left: 0; width: 100%; display: none; justify-content: space-between; padding: 0 30px; box-sizing: border-box; pointer-events: none; z-index: 15; }
-        .touch-group { display: flex; gap: 15px; pointer-events: auto; }
-        .touch-btn { width: 65px; height: 65px; background: rgba(255, 255, 255, 0.2); border: 3px solid rgba(255, 255, 255, 0.5); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 30px; color: white; user-select: none; -webkit-user-select: none; touch-action: none; backdrop-filter: blur(2px); }
-        .touch-btn:active { background: rgba(255, 255, 255, 0.5); transform: scale(0.95); }
+        /* Mobile/Tablet Touch Controls */
+        #touchControls { position: absolute; bottom: 30px; left: 0; width: 100%; display: none; justify-content: space-between; padding: 0 40px; box-sizing: border-box; pointer-events: none; z-index: 15; }
+        .touch-group { display: flex; gap: 20px; pointer-events: auto; }
+        .touch-btn { width: 70px; height: 70px; background: rgba(255, 255, 255, 0.15); border: 3px solid rgba(255, 255, 255, 0.6); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 32px; color: white; user-select: none; -webkit-user-select: none; touch-action: none; backdrop-filter: blur(4px); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .touch-btn:active { background: rgba(255, 255, 255, 0.4); transform: scale(0.92); border-color: #FFD700; }
 
-        /* Media Queries for smaller screens */
-        @media (max-width: 768px) {
-            #touchControls { display: flex; } /* Show touch controls on tablets/phones */
-            #shopGrid { grid-template-columns: repeat(2, 1fr); }
+        /* Media Queries for resizing */
+        @media (max-width: 1024px) {
             canvas { border-width: 4px; border-radius: 10px; }
-            #ui { font-size: 18px; top: 10px; }
+            #ui { font-size: 20px; top: 10px; }
+        }
+        @media (max-width: 768px) {
+            #shopGrid { grid-template-columns: repeat(2, 1fr); }
+            #touchControls { bottom: 15px; padding: 0 15px; }
+            .touch-btn { width: 60px; height: 60px; font-size: 28px; }
         }
         @media (max-width: 480px) {
             #shopGrid { grid-template-columns: 1fr; }
             .touch-btn { width: 55px; height: 55px; font-size: 24px; }
+            .touch-group { gap: 10px; }
         }
     </style>
 </head>
@@ -100,6 +105,12 @@
     <canvas id="gameCanvas" width="800" height="500"></canvas>
 
 <script>
+    // --- SHOW TOUCH CONTROLS ON ANY TOUCH DEVICE (iPads included!) ---
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
+    if (isTouchDevice) {
+        document.getElementById('touchControls').style.display = 'flex';
+    }
+
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreDisplay = document.getElementById('scoreDisplay');
@@ -139,7 +150,7 @@
         { id: 'doubleJump', name: 'Double Jump', desc: 'Jump twice in the air!', price: 50, type: 'upgrade' },
         { id: 'pet', name: 'Mini-Pet', desc: 'Follows you & magnets studs!', price: 150, type: 'upgrade' },
         { id: 'shield', name: 'Energy Shield', desc: 'Survive 1 hit every level!', price: 200, type: 'upgrade' },
-        { id: 'permThrower', name: 'Brick Thrower', desc: 'Shoot anytime (Press F/🔥)', price: 300, type: 'upgrade' },
+        { id: 'permThrower', name: 'Brick Thrower', desc: 'Shoot anytime (Press 🔥)', price: 300, type: 'upgrade' },
         { id: 'ninja', name: 'Ninja Suit', desc: 'Stealthy black outfit', price: 20, type: 'suit' },
         { id: 'crown', name: 'Crown Hat', desc: 'Look like royalty', price: 30, type: 'hat' },
         { id: 'pirate', name: 'Pirate Hat', desc: 'Yarrr!', price: 40, type: 'hat' },
@@ -164,15 +175,15 @@
 
     function bindTouch(elementId, keyCode) {
         const el = document.getElementById(elementId);
-        // Touch events
+        // Ensure iOS Safari registers touches without scrolling
         el.addEventListener('touchstart', (e) => { 
             e.preventDefault(); 
             if(audioCtx.state === 'suspended') audioCtx.resume();
             keys[keyCode] = true; 
-        });
-        el.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyCode] = false; });
-        el.addEventListener('touchcancel', (e) => { e.preventDefault(); keys[keyCode] = false; });
-        // Mouse fallback for testing on desktop
+        }, { passive: false });
+        el.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyCode] = false; }, { passive: false });
+        el.addEventListener('touchcancel', (e) => { e.preventDefault(); keys[keyCode] = false; }, { passive: false });
+        
         el.addEventListener('mousedown', (e) => { keys[keyCode] = true; });
         el.addEventListener('mouseup', (e) => { keys[keyCode] = false; });
         el.addEventListener('mouseleave', (e) => { keys[keyCode] = false; });

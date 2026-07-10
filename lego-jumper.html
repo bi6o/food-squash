@@ -2,53 +2,70 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LEGO Jumper - DELUXE EDITION</title>
+    <!-- Critical for mobile: locks zooming and scaling -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LEGO Jumper - MOBILE EDITION</title>
     <style>
-        body { margin: 0; padding: 0; background-color: #1a1a2e; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Comic Sans MS', 'Arial', sans-serif; overflow: hidden; color: white; }
-        canvas { background-color: #4A90E2; box-shadow: 0 0 30px rgba(0,0,0,0.9); border: 6px solid #FFD700; border-radius: 15px; }
-        
-        #ui { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); width: 760px; display: flex; justify-content: space-between; pointer-events: none; font-size: 26px; font-weight: bold; text-shadow: 2px 2px 0 #000; z-index: 5; }
-        #message { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); font-size: 55px; color: #FFD700; font-weight: bold; text-shadow: 4px 4px 0 #000; display: none; pointer-events: none; text-align: center; z-index: 10; transition: transform 0.3s ease; }
-        
-        /* Modern Shop UI */
-        #shopOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 20; opacity: 0; transition: opacity 0.5s ease; }
-        
-        #shopBox { 
-            background: #222; border: 6px solid #FFD700; border-radius: 20px; padding: 30px; 
-            width: 650px; max-height: 85vh; /* Prevents shop from overflowing screen */
-            display: flex; flex-direction: column; text-align: center; 
-            box-shadow: 0 0 40px rgba(255, 215, 0, 0.4); 
+        body { 
+            margin: 0; padding: 0; background-color: #1a1a2e; display: flex; 
+            justify-content: center; align-items: center; height: 100vh; 
+            font-family: 'Comic Sans MS', 'Arial', sans-serif; overflow: hidden; 
+            color: white; touch-action: none; /* Stops mobile pull-to-refresh */
         }
         
-        #shopBox h1 { color: #FFD700; margin-top: 0; font-size: 36px; text-shadow: 2px 2px 0 #000; letter-spacing: 2px; flex-shrink: 0; }
-        #shopBox h3 { color: #fff; margin-bottom: 20px; font-size: 24px; flex-shrink: 0; }
-        
-        /* Scrollable Grid */
-        #shopGrid { 
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; 
-            margin-bottom: 25px; overflow-y: auto; padding-right: 10px; 
+        /* Auto-scales to fit any screen */
+        canvas { 
+            background-color: #4A90E2; box-shadow: 0 0 30px rgba(0,0,0,0.9); 
+            border: 6px solid #FFD700; border-radius: 15px; 
+            width: 100%; max-width: 800px; max-height: 90vh; object-fit: contain;
         }
         
-        /* Custom LEGO Scrollbar */
-        #shopGrid::-webkit-scrollbar { width: 14px; }
+        #ui { 
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%); 
+            width: 100%; max-width: 760px; padding: 0 20px; box-sizing: border-box; 
+            display: flex; justify-content: space-between; pointer-events: none; 
+            font-size: 24px; font-weight: bold; text-shadow: 2px 2px 0 #000; z-index: 5; 
+        }
+        #message { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); font-size: 45px; color: #FFD700; font-weight: bold; text-shadow: 4px 4px 0 #000; display: none; pointer-events: none; text-align: center; z-index: 10; transition: transform 0.3s ease; }
+        
+        /* Shop UI */
+        #shopOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 20; opacity: 0; transition: opacity 0.5s ease; padding: 10px; box-sizing: border-box; }
+        #shopBox { background: #222; border: 6px solid #FFD700; border-radius: 20px; padding: 20px; width: 100%; max-width: 650px; max-height: 90vh; display: flex; flex-direction: column; text-align: center; box-shadow: 0 0 40px rgba(255, 215, 0, 0.4); box-sizing: border-box; }
+        #shopBox h1 { color: #FFD700; margin-top: 0; font-size: 28px; text-shadow: 2px 2px 0 #000; flex-shrink: 0; }
+        #shopBox h3 { color: #fff; margin-bottom: 15px; font-size: 20px; flex-shrink: 0; }
+        
+        #shopGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; overflow-y: auto; padding-right: 5px; }
+        #shopGrid::-webkit-scrollbar { width: 10px; }
         #shopGrid::-webkit-scrollbar-track { background: #111; border-radius: 10px; }
-        #shopGrid::-webkit-scrollbar-thumb { background: #FFD700; border-radius: 10px; border: 3px solid #111; }
-        #shopGrid::-webkit-scrollbar-thumb:hover { background: #FFA500; }
+        #shopGrid::-webkit-scrollbar-thumb { background: #FFD700; border-radius: 10px; }
         
-        .shop-item { background: #333; border: 3px solid #777; border-radius: 12px; padding: 15px 10px; cursor: pointer; transition: transform 0.2s, border-color 0.2s, background 0.2s; display: flex; flex-direction: column; justify-content: space-between; height: 110px; }
-        .shop-item:hover { transform: translateY(-5px); background: #444; }
-        .shop-item.affordable:hover { border-color: #FFD700; }
-        .shop-item.expensive { opacity: 0.5; cursor: not-allowed; border-color: #555; }
-        .shop-item.expensive:hover { transform: none; background: #333; }
+        .shop-item { background: #333; border: 3px solid #777; border-radius: 12px; padding: 10px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; height: auto; min-height: 100px; }
+        .shop-item.affordable:active { border-color: #FFD700; background: #444; }
+        .shop-item.expensive { opacity: 0.5; border-color: #555; pointer-events: none; }
         
-        .item-name { font-weight: bold; font-size: 18px; color: #fff; }
-        .item-desc { font-size: 12px; color: #bbb; margin-top: 5px; flex-grow: 1; }
-        .item-price { font-weight: bold; font-size: 16px; color: #FFD700; margin-top: 8px; background: rgba(0,0,0,0.5); border-radius: 5px; padding: 3px; }
+        .item-name { font-weight: bold; font-size: 16px; color: #fff; }
+        .item-desc { font-size: 11px; color: #bbb; margin-top: 5px; flex-grow: 1; }
+        .item-price { font-weight: bold; font-size: 14px; color: #FFD700; margin-top: 8px; background: rgba(0,0,0,0.5); border-radius: 5px; padding: 3px; }
         
-        .shop-btn { padding: 15px 40px; font-size: 24px; font-weight: bold; background: linear-gradient(to bottom, #32CD32, #008000); color: white; border: 4px solid white; border-radius: 15px; cursor: pointer; font-family: inherit; transition: transform 0.2s, background 0.2s; box-shadow: 0 5px 0 #005500; flex-shrink: 0; }
-        .shop-btn:hover { transform: translateY(2px); box-shadow: 0 3px 0 #005500; }
-        .shop-btn:active { transform: translateY(5px); box-shadow: none; }
+        .shop-btn { padding: 12px 20px; font-size: 20px; font-weight: bold; background: linear-gradient(to bottom, #32CD32, #008000); color: white; border: 4px solid white; border-radius: 15px; cursor: pointer; flex-shrink: 0; }
+        
+        /* Mobile Touch Controls */
+        #touchControls { position: absolute; bottom: 20px; left: 0; width: 100%; display: none; justify-content: space-between; padding: 0 30px; box-sizing: border-box; pointer-events: none; z-index: 15; }
+        .touch-group { display: flex; gap: 15px; pointer-events: auto; }
+        .touch-btn { width: 65px; height: 65px; background: rgba(255, 255, 255, 0.2); border: 3px solid rgba(255, 255, 255, 0.5); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 30px; color: white; user-select: none; -webkit-user-select: none; touch-action: none; backdrop-filter: blur(2px); }
+        .touch-btn:active { background: rgba(255, 255, 255, 0.5); transform: scale(0.95); }
+
+        /* Media Queries for smaller screens */
+        @media (max-width: 768px) {
+            #touchControls { display: flex; } /* Show touch controls on tablets/phones */
+            #shopGrid { grid-template-columns: repeat(2, 1fr); }
+            canvas { border-width: 4px; border-radius: 10px; }
+            #ui { font-size: 18px; top: 10px; }
+        }
+        @media (max-width: 480px) {
+            #shopGrid { grid-template-columns: 1fr; }
+            .touch-btn { width: 55px; height: 55px; font-size: 24px; }
+        }
     </style>
 </head>
 <body>
@@ -61,12 +78,22 @@
 
     <div id="shopOverlay">
         <div id="shopBox">
-            <h1>🛍️ THE LEGO SHOP</h1>
-            <h3 id="shopStuds">Your Studs: <span style="color:#FFD700">0</span></h3>
-            <div id="shopGrid">
-                <!-- Items are generated here by JavaScript -->
-            </div>
-            <button class="shop-btn" onclick="closeShopAndNextLevel()">Start Next Level! ➡️</button>
+            <h1>🛍️ LEGO SHOP</h1>
+            <h3 id="shopStuds">Studs: <span style="color:#FFD700">0</span></h3>
+            <div id="shopGrid"></div>
+            <button class="shop-btn" onclick="closeShopAndNextLevel()">Next Level! ➡️</button>
+        </div>
+    </div>
+
+    <!-- On-screen Touch Controls -->
+    <div id="touchControls">
+        <div class="touch-group">
+            <div class="touch-btn" id="btnLeft">◀️</div>
+            <div class="touch-btn" id="btnRight">▶️</div>
+        </div>
+        <div class="touch-group">
+            <div class="touch-btn" id="btnFire">🔥</div>
+            <div class="touch-btn" id="btnJump">⬆️</div>
         </div>
     </div>
 
@@ -104,29 +131,23 @@
     let score = 0; let scoreAtLevelStart = 0;
     let currentLevel = 1; let cameraX = 0;
     let levelBackup = null; 
-    let gameState = 'playing'; // playing, transitioning, shop
-
-    // Track owned items to hide them
+    let gameState = 'playing'; 
     let ownedItems = [];
-    
-    // Upgrades that apply logic
     let upgrades = { doubleJump: false, shield: false, permanentThrower: false, pet: false, hat: 'none', suit: 'classic' };
 
     const shopCatalog = [
         { id: 'doubleJump', name: 'Double Jump', desc: 'Jump twice in the air!', price: 50, type: 'upgrade' },
         { id: 'pet', name: 'Mini-Pet', desc: 'Follows you & magnets studs!', price: 150, type: 'upgrade' },
         { id: 'shield', name: 'Energy Shield', desc: 'Survive 1 hit every level!', price: 200, type: 'upgrade' },
-        { id: 'permThrower', name: 'Brick Thrower', desc: 'Shoot anytime (Press F)', price: 300, type: 'upgrade' },
-        
+        { id: 'permThrower', name: 'Brick Thrower', desc: 'Shoot anytime (Press F/🔥)', price: 300, type: 'upgrade' },
         { id: 'ninja', name: 'Ninja Suit', desc: 'Stealthy black outfit', price: 20, type: 'suit' },
         { id: 'crown', name: 'Crown Hat', desc: 'Look like royalty', price: 30, type: 'hat' },
         { id: 'pirate', name: 'Pirate Hat', desc: 'Yarrr!', price: 40, type: 'hat' },
-        { id: 'zombie', name: 'Zombie Skin', desc: 'Green skin, ripped clothes', price: 50, type: 'suit' },
+        { id: 'zombie', name: 'Zombie Skin', desc: 'Green skin, torn clothes', price: 50, type: 'suit' },
         { id: 'astro', name: 'Astro Helmet', desc: 'To the moon!', price: 60, type: 'hat' },
         { id: 'gold', name: 'Gold Suit', desc: 'Very shiny!', price: 100, type: 'suit' }
     ];
 
-    // Player Object
     let player = {
         x: 50, y: 200, w: 30, h: 50, vx: 0, vy: 0, speed: 1.2,
         baseJump: 14, jumpPower: 14, grounded: false,
@@ -134,12 +155,33 @@
         jumpsLeft: 1, combo: 0, shieldActive: false
     };
 
-    // Helper Pet Object
     let pet = { x: 50, y: 200, active: false };
-
     const keys = {};
+
+    // --- INPUT HANDLING (Keyboard + Touch) ---
     window.addEventListener('keydown', e => keys[e.code] = true);
     window.addEventListener('keyup', e => keys[e.code] = false);
+
+    function bindTouch(elementId, keyCode) {
+        const el = document.getElementById(elementId);
+        // Touch events
+        el.addEventListener('touchstart', (e) => { 
+            e.preventDefault(); 
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            keys[keyCode] = true; 
+        });
+        el.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyCode] = false; });
+        el.addEventListener('touchcancel', (e) => { e.preventDefault(); keys[keyCode] = false; });
+        // Mouse fallback for testing on desktop
+        el.addEventListener('mousedown', (e) => { keys[keyCode] = true; });
+        el.addEventListener('mouseup', (e) => { keys[keyCode] = false; });
+        el.addEventListener('mouseleave', (e) => { keys[keyCode] = false; });
+    }
+
+    bindTouch('btnLeft', 'ArrowLeft');
+    bindTouch('btnRight', 'ArrowRight');
+    bindTouch('btnJump', 'ArrowUp');
+    bindTouch('btnFire', 'KeyF');
 
     let platforms = [], studs = [], enemies = [], powerups = [], goal = {}, projectiles = [], boss = null;
     let particles = [], floatingTexts = [];
@@ -203,35 +245,25 @@
 
     // --- UX & SHOP MANAGEMENT ---
     function triggerLevelComplete() {
-        gameState = 'transitioning';
-        playSound('powerup');
+        gameState = 'transitioning'; playSound('powerup');
         showMessage("LEVEL COMPLETE! 🎉", 2000);
-        
-        for(let i=0; i<3; i++) {
-            setTimeout(() => spawnParticles(goal.x + 50 + (Math.random()*100-50), goal.y + (Math.random()*100-50), "#FFD700", 30), i*300);
-        }
-
+        for(let i=0; i<3; i++) setTimeout(() => spawnParticles(goal.x + 50 + (Math.random()*100-50), goal.y + (Math.random()*100-50), "#FFD700", 30), i*300);
         setTimeout(() => { openShop(); }, 2000);
     }
 
     function renderShopGrid() {
         shopGrid.innerHTML = "";
-        shopStuds.innerHTML = `Your Studs: <span style="color:#FFD700">${score}</span>`;
-        
-        let availableItems = shopCatalog.filter(item => !ownedItems.includes(item.id));
-        
-        // SORT ITEMS BY PRICE
-        availableItems.sort((a, b) => a.price - b.price);
+        shopStuds.innerHTML = `Studs: <span style="color:#FFD700">${score}</span>`;
+        let availableItems = shopCatalog.filter(item => !ownedItems.includes(item.id)).sort((a, b) => a.price - b.price);
         
         if (availableItems.length === 0) {
-            shopGrid.innerHTML = `<h3 style="grid-column: span 3; color: #aaa;">You bought everything!</h3>`;
+            shopGrid.innerHTML = `<h3 style="grid-column: 1 / -1; color: #aaa;">You bought everything!</h3>`;
             return;
         }
 
         availableItems.forEach(item => {
             let canAfford = score >= item.price;
             let btnClass = canAfford ? 'affordable' : 'expensive';
-            
             shopGrid.innerHTML += `
                 <div class="shop-item ${btnClass}" onclick="buyItem('${item.id}', ${item.price}, ${canAfford})">
                     <div class="item-name">${item.name}</div>
@@ -243,18 +275,14 @@
     }
 
     function openShop() {
-        gameState = 'shop';
-        renderShopGrid();
+        gameState = 'shop'; renderShopGrid();
         shopOverlay.style.display = 'flex';
         setTimeout(() => shopOverlay.style.opacity = '1', 50);
     }
 
     function buyItem(id, price, canAfford) {
         if (!canAfford) { playSound('stomp'); return; }
-
-        score -= price;
-        ownedItems.push(id); 
-        playSound('coin');
+        score -= price; ownedItems.push(id); playSound('coin');
 
         if (id === 'doubleJump') upgrades.doubleJump = true;
         else if (id === 'shield') upgrades.shield = true;
@@ -263,24 +291,18 @@
         else if (['crown', 'pirate', 'astro'].includes(id)) upgrades.hat = id;
         else if (['ninja', 'zombie', 'gold'].includes(id)) upgrades.suit = id;
 
-        scoreDisplay.innerText = score;
-        renderShopGrid(); 
+        scoreDisplay.innerText = score; renderShopGrid(); 
     }
 
     function closeShopAndNextLevel() {
         shopOverlay.style.opacity = '0';
-        setTimeout(() => {
-            shopOverlay.style.display = 'none';
-            startNewLevel(currentLevel + 1);
-        }, 500);
+        setTimeout(() => { shopOverlay.style.display = 'none'; startNewLevel(currentLevel + 1); }, 500);
     }
 
     function startNewLevel(levelNum) {
-        gameState = 'playing';
-        currentLevel = levelNum; scoreAtLevelStart = score;
+        gameState = 'playing'; currentLevel = levelNum; scoreAtLevelStart = score;
         levelDisplay.innerText = currentLevel;
         showMessage(levelNum % 5 === 0 ? "BOSS BATTLE!" : "Level " + currentLevel, 2000);
-        
         generateLevel(currentLevel);
         levelBackup = JSON.stringify({ platforms, studs, enemies, powerups, goal, boss });
         resetPlayerState();
@@ -291,18 +313,14 @@
         score = scoreAtLevelStart; scoreDisplay.innerText = score;
         let backup = JSON.parse(levelBackup);
         platforms = backup.platforms; studs = backup.studs; enemies = backup.enemies; powerups = backup.powerups; goal = backup.goal; boss = backup.boss;
-        projectiles = [];
-        resetPlayerState();
+        projectiles = []; resetPlayerState();
     }
 
     function resetPlayerState() {
         player.x = 50; player.y = 100; player.vx = 0; player.vy = 0; player.combo = 0;
         player.invincibleTimer = 0; player.superJumpTimer = 0; player.throwerTimer = 0; 
-        player.jumpsLeft = upgrades.doubleJump ? 2 : 1;
-        player.shieldActive = upgrades.shield; 
-        
+        player.jumpsLeft = upgrades.doubleJump ? 2 : 1; player.shieldActive = upgrades.shield; 
         if (upgrades.pet) { pet.active = true; pet.x = 50; pet.y = 100; }
-        
         cameraX = 0; particles = []; floatingTexts = [];
     }
 
@@ -317,7 +335,6 @@
     function update() {
         if (gameState !== 'playing') return; 
 
-        // --- Controls ---
         if (keys['ArrowLeft'] || keys['KeyA']) player.vx -= player.speed;
         if (keys['ArrowRight'] || keys['KeyD']) player.vx += player.speed;
         
@@ -334,7 +351,6 @@
         }
         if (!keys['KeyF']) fKeyPressed = false;
 
-        // Physics
         player.vx *= 0.82; player.vy += 0.55; 
 
         if (player.invincibleTimer > 0) player.invincibleTimer--;
@@ -342,7 +358,6 @@
         if (player.superJumpTimer > 0) { player.superJumpTimer--; player.jumpPower = player.baseJump * 1.5; } 
         else { player.jumpPower = player.baseJump; }
 
-        // Pet Logic 
         if (pet.active) {
             pet.x += ((player.x - (player.vx >= 0 ? 40 : -10)) - pet.x) * 0.1;
             pet.y += ((player.y - 30) - pet.y) * 0.1;
@@ -352,7 +367,6 @@
             }
         }
 
-        // --- Platforms ---
         let pVx = 0;
         for (let i = platforms.length - 1; i >= 0; i--) {
             let p = platforms[i];
@@ -363,7 +377,6 @@
             }
         }
 
-        // Collisions
         player.x += player.vx;
         for (let p of platforms) {
             if (checkCollision(player, p)) {
@@ -386,13 +399,11 @@
         }
         player.x += pVx; 
 
-        // --- Projectiles ---
         for (let i = projectiles.length - 1; i >= 0; i--) {
             let pr = projectiles[i]; pr.x += pr.vx; pr.life--;
             if (pr.life <= 0) projectiles.splice(i, 1);
         }
 
-        // --- Boss Logic ---
         if (boss && boss.hp > 0) {
             boss.x += boss.vx; boss.vy += 0.55; boss.y += boss.vy; 
             if (boss.y > 300) { boss.y = 300; boss.vy = -10; } 
@@ -407,9 +418,7 @@
                 if (player.invincibleTimer > 0 || (player.vy > 0 && player.y + player.h < boss.y + 30)) {
                     if (boss.invincibleTimer <= 0) damageBoss();
                     player.vy = -15; 
-                } else if (boss.invincibleTimer <= 0) {
-                    playerHit();
-                }
+                } else if (boss.invincibleTimer <= 0) { playerHit(); }
             }
         }
 
@@ -428,7 +437,6 @@
             } else { restartCurrentLevel(); }
         }
 
-        // --- Enemies ---
         for (let i = enemies.length - 1; i >= 0; i--) {
             let e = enemies[i]; if (e.dead) continue;
             
@@ -451,7 +459,6 @@
             }
         }
 
-        // --- Items ---
         for (let i = powerups.length - 1; i >= 0; i--) {
             let p = powerups[i];
             if (checkCollision(player, p)) {
@@ -470,12 +477,9 @@
             }
         }
 
-        // --- Goal Reached! ---
         if (!goal.hidden && checkCollision(player, goal)) triggerLevelComplete(); 
-
         if (player.y > canvas.height + 150) restartCurrentLevel();
 
-        // Particles & Text Update
         for (let i = particles.length - 1; i >= 0; i--) { let p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life--; if (p.life <= 0) particles.splice(i, 1); }
         for (let i = floatingTexts.length - 1; i >= 0; i--) { let t = floatingTexts[i]; t.y -= 1; t.life--; if (t.life <= 0) floatingTexts.splice(i, 1); }
 
